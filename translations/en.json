@@ -1,0 +1,28 @@
+{
+  "title": "Beamer",
+  "active": "Active",
+  "failed": "Could not change the display layout",
+  "nothing-attached": "Nothing plugged in yet",
+  "unavailable": {
+    "title": "Hyprland only",
+    "subtitle": "Beamer drives monitors through hyprctl, which is not available here"
+  },
+  "mode": {
+    "extend": {
+      "title": "Extend",
+      "subtitle": "External screen gets its own workspaces"
+    },
+    "mirror": {
+      "title": "Duplicate",
+      "subtitle": "External screen shows a copy of the built-in one"
+    },
+    "external": {
+      "title": "External only",
+      "subtitle": "Built-in screen off"
+    },
+    "internal": {
+      "title": "Laptop only",
+      "subtitle": "External screen off"
+    }
+  }
+}
