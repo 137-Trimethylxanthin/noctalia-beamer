@@ -24,7 +24,7 @@ plugin and starts it. Both are also available in **Settings → Plugins**, where
 To pick up a new version later:
 
 ```sh
-noctalia msg plugins update
+noctalia msg plugins update fiaker
 ```
 
 ## After installing, point it at a calendar
@@ -35,7 +35,7 @@ does not expose the built-in calendar, so on stock Noctalia 5.1.0 the working
 backend is a directory of `.ics` files — the layout `vdirsyncer` produces.
 
 In **Settings → Plugins → Fiaker**, set **vdir path** to that directory. If you
-do not have one yet, `vdirsyncer` will sync Google or any CaldAV account into
+do not have one yet, `vdirsyncer` will sync Google or any CalDAV account into
 one; point Noctalia's own calendar account at the same directory and the two can
 never disagree.
 
