@@ -83,7 +83,9 @@ end
 
 -- Remembers how the built-in panel was running while it was on, so switching
 -- back does not silently reset it -- a 2560x1600 panel handed "scale 1"
--- becomes unreadable. Kept in plugin state so it survives a shell restart.
+-- becomes unreadable. Every switch re-reads the monitors first, so this is
+-- refreshed right before it is needed; "preferred"/"auto" is the fallback if
+-- the panel has not been seen running yet.
 local function rememberInternal(info)
   local internal = info.internal
   if internal == nil or internal.disabled == true then
@@ -129,12 +131,16 @@ local function evalRule(rule)
   )
 end
 
+-- Chained with && on purpose. Rules are ordered so that a screen is switched
+-- on before another is switched off, and hyprctl exits non-zero on a rule it
+-- rejects -- so if enabling the external screen fails, the command that would
+-- have turned the built-in one off never runs.
 local function joinKeyword(rules)
   local parts = {}
   for _, rule in ipairs(rules) do
     table.insert(parts, keywordRule(rule))
   end
-  return table.concat(parts, "; ")
+  return table.concat(parts, " && ")
 end
 
 local function joinEval(rules)
@@ -190,8 +196,9 @@ local function applyRules(rules, done)
   end
 
   run(joinKeyword(rules), function(ok, output)
-    -- The Lua parser answers every keyword with this instead of failing, so
-    -- the first switch is also the probe.
+    -- The Lua parser answers every keyword with this refusal instead of
+    -- applying it, so the first switch doubles as the probe: nothing was
+    -- changed, and re-running the same rules through eval is safe.
     if string.find(output, "non%-legacy") then
       useEval = true
       return run(joinEval(rules), done)

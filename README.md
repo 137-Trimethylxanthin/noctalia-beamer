@@ -78,7 +78,14 @@ laptop panel on a 16:9 projector will letterbox. **External only** avoids it.
 
 **Your panel's scale is preserved.** Beamer records the built-in screen's mode
 and scale whenever it sees it running, and restores both when switching back, so
-a HiDPI panel does not come back at scale 1.
+a HiDPI panel does not come back at scale 1. Every switch re-reads the monitors
+first, so this is current; if Beamer has never seen the panel running, it falls
+back to `preferred` and `auto`.
+
+**The hyprlang path is untested.** Beamer was developed on Hyprland's Lua config
+parser, so every switch the author has run went through `hyprctl eval`. The
+`hyprctl keyword` branch is written against documented syntax but has not been
+exercised on a real hyprlang setup. Reports welcome.
 
 **It will not black out your session.** The built-in screen is only switched off
 when an external one is attached and enabled.
