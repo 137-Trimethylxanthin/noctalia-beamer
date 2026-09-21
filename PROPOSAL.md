@@ -19,17 +19,19 @@ bar widget + panel · full box-splitting now-line from the start.
 A plugin is a directory:
 
 ```
-fiaker/
+noctalia-fiaker/      # repo root - the plugin lives here
   plugin.toml          # manifest: id, version, plugin_api, entries, settings schema
   ingest.luau          # [[service]]
   month.luau           # [[desktop_widget]]
   day.luau             # [[desktop_widget]]
   melange.luau         # [[panel]]
-  bar.luau             # [[widget]]
+  next.luau            # [[widget]]
   lib/
     date.luau          # week/month math
     layout.luau        # lane assignment + box splitting
     model.luau         # shared event normalization
+    view.luau          # the ui.* trees
+    source*.luau       # backend picker + the two backends
 ```
 
 - **Manifest** `plugin.toml`: `id = "author/plugin"`, `version` strictly `MAJOR.MINOR.PATCH`,
@@ -275,7 +277,7 @@ the blend of every calendar you sync.
 
 ## 6. Phasing
 
-**Done** (`fiaker/`, lints clean, 40 logic assertions passing):
+**Done** (lints clean, 40 logic assertions passing):
 
 - [x] Manifest with all five entries and the shared settings schema
 - [x] `lib/date.luau` — DST-safe day/month arithmetic, 6×7 grid, locale weekday headers

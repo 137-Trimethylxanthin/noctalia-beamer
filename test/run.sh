@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-SRC=../fiaker
+SRC=..
 OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
 mkdir -p "$OUT/lib"
