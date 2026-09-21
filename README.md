@@ -1,5 +1,7 @@
 # Beamer
 
+![Beamer in the Noctalia launcher](thumbnail.webp)
+
 Hyprland has no "Win+P" menu. Mirroring exists, but only as a monitor rule you
 write into your config and reload — which is not what you want thirty seconds
 before a talk. Beamer puts the four layouts you actually reach for in the
