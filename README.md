@@ -25,7 +25,7 @@ plugin and starts it. Both are also available in **Settings → Plugins**, where
 To pick up a new version later:
 
 ```sh
-noctalia msg plugins update
+noctalia msg plugins update beamer
 ```
 
 Requires Hyprland with `hyprctl` on `PATH`. Full documentation — layouts, the
