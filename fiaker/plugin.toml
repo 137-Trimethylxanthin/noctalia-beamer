@@ -1,0 +1,161 @@
+# Fiaker — a calendar that separates the month grid from the day timeline.
+#
+# Five entries, one plugin. They MUST live in one plugin: noctalia.state is a
+# per-plugin channel, so selection sync across widgets is only possible here.
+#
+#   ingest   [[service]]         polls a source, normalizes, publishes to state
+#   month    [[desktop_widget]]  month grid; click a day -> selected_date
+#   day      [[desktop_widget]]  timeline with the live now-line
+#   melange  [[panel]]           both views in one popup (the blend of calendars)
+#   next     [[widget]]          bar: "next event in 25 min", opens melange
+
+id           = "137-trimethylxanthin/fiaker"
+name         = "Fiaker"
+version      = "0.1.0"
+plugin_api   = 23   # readFileAsync; nothing here needs a higher level
+author       = "137-trimethylxanthin"
+license      = "MIT"
+deprecated   = false
+icon         = "calendar"
+description  = "A calendar that separates the month grid from the day timeline, with a live now-line."
+tags         = ["calendar", "events", "agenda", "timeline"]
+dependencies = []
+
+# ── Plugin-level settings: seeded into EVERY entry, so all five agree ──────────
+
+[[setting]]
+key             = "source"
+type            = "select"
+label_key       = "settings.source.label"
+description_key = "settings.source.description"
+default         = "auto"
+  [[setting.options]]
+  value     = "auto"
+  label_key = "settings.source.auto"
+  [[setting.options]]
+  value     = "native"
+  label_key = "settings.source.native"
+  [[setting.options]]
+  value     = "vdir"
+  label_key = "settings.source.vdir"
+
+[[setting]]
+key             = "vdir_path"
+type            = "folder"
+label_key       = "settings.vdir_path.label"
+description_key = "settings.vdir_path.description"
+default         = "~/.calendars"
+visible_when    = { key = "source", values = ["vdir", "auto"] }
+
+[[setting]]
+key             = "window_days"
+type            = "int"
+label_key       = "settings.window_days.label"
+description_key = "settings.window_days.description"
+default         = 45
+min             = 7
+max             = 180
+advanced        = true
+
+[[setting]]
+key             = "refresh_seconds"
+type            = "int"
+label_key       = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default         = 300
+min             = 30
+max             = 3600
+advanced        = true
+
+[[setting]]
+key             = "week_start"
+type            = "select"
+label_key       = "settings.week_start.label"
+default         = "monday"
+  [[setting.options]]
+  value     = "monday"
+  label_key = "settings.week_start.monday"
+  [[setting.options]]
+  value     = "sunday"
+  label_key = "settings.week_start.sunday"
+
+[[setting]]
+key             = "hour_from"
+type            = "int"
+label_key       = "settings.hour_from.label"
+description_key = "settings.hour_from.description"
+default         = 7
+min             = 0
+max             = 23
+
+[[setting]]
+key       = "hour_to"
+type      = "int"
+label_key = "settings.hour_to.label"
+default   = 22
+min       = 1
+max       = 24
+
+[[setting]]
+key             = "px_per_minute"
+type            = "double"
+label_key       = "settings.px_per_minute.label"
+description_key = "settings.px_per_minute.description"
+default         = 0.6
+min             = 0.2
+max             = 4.0
+
+[[setting]]
+key             = "now_color"
+type            = "color"
+label_key       = "settings.now_color.label"
+default         = "error"
+
+[[setting]]
+key       = "accent"
+type      = "color"
+label_key = "settings.accent.label"
+default   = "primary"
+
+[[setting]]
+key       = "show_all_day"
+type      = "bool"
+label_key = "settings.show_all_day.label"
+default   = true
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+
+[[service]]
+id    = "ingest"
+entry = "ingest.luau"
+
+[[desktop_widget]]
+id    = "month"
+entry = "month.luau"
+
+[[desktop_widget]]
+id    = "day"
+entry = "day.luau"
+
+[[panel]]
+id        = "melange"
+entry     = "melange.luau"
+width     = 720
+height    = 520
+placement = "floating"
+position  = "center"
+
+[[widget]]
+id    = "next"
+entry = "next.luau"
+
+  [[widget.setting]]
+  key       = "max_title"
+  type      = "int"
+  label_key = "settings.max_title.label"
+  default   = 22
+  min       = 6
+  max       = 60
+
+  [widget.actions]
+  middle = "none"
