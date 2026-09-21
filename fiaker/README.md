@@ -66,7 +66,10 @@ start/end"*. The data is merged, expanded and in-process — it simply isn't rea
 Noctalia loads plugins from a git or path source:
 
 ```sh
-noctalia msg plugins source add local path /home/maki/Documents/code/noctaliaPluginBetterCal
+noctalia msg plugins source add fiaker git https://github.com/137-Trimethylxanthin/noctalia-fiaker
+
+# ...or from a local checkout while developing:
+# noctalia msg plugins source add fiaker path ~/Documents/code/noctalia-fiaker
 noctalia msg plugins enable 137-trimethylxanthin/fiaker
 ```
 
