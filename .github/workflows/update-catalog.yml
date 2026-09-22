@@ -1,9 +1,10 @@
 name: Update Plugin Catalog
 
 # catalog.toml is what a git plugin source is read through: Noctalia clones this
-# repo, parses the catalog at the root, and exports `beamer/` from it. So unlike in
-# noctalia-dev/official-plugins, the catalog here is committed — it has to be on
-# the branch users fetch. This job keeps it in step with beamer/plugin.toml.
+# repo, parses the catalog at the root, and exports the plugin subdirectory it was
+# asked for. So unlike in noctalia-dev/official-plugins, the catalog here is
+# committed — it has to be on the branch users fetch. This job keeps it in step
+# with every <plugin>/plugin.toml in the repo.
 
 on:
   push:
@@ -22,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: ${{ github.repository == '137-Trimethylxanthin/noctalia-beamer' }}
+    if: ${{ github.repository == '137-Trimethylxanthin/noctalia-kaffeehaus' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

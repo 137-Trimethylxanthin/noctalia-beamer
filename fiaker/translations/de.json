@@ -1,0 +1,79 @@
+{
+  "settings": {
+    "source": {
+      "label": "Terminquelle",
+      "description": "Woher die Termine kommen. „Automatisch“ bevorzugt Noctalias eigenen Kalenderdienst, sofern dieser Build ihn bereitstellt, und fällt sonst auf ein vdir zurück.",
+      "auto": "Automatisch",
+      "native": "Noctalia-Kalenderdienst",
+      "vdir": "vdir (.ics-Verzeichnis)"
+    },
+    "vdir_path": {
+      "label": "vdir-Pfad",
+      "description": "Verzeichnis mit .ics-Sammlungen, wie vdirsyncer sie schreibt. Richte Noctalias eigenes vdir-Konto auf denselben Pfad, damit beide dieselbe Quelle lesen."
+    },
+    "window_days": {
+      "label": "Zeitfenster (Tage)",
+      "description": "Wie viele Tage vor und nach heute geladen bleiben. Das Monatsraster braucht das ganze Fenster für seine Punkte."
+    },
+    "refresh_seconds": {
+      "label": "Aktualisierung (Sekunden)",
+      "description": "Wie oft der Hintergrunddienst die Quelle neu einliest."
+    },
+    "week_start": {
+      "label": "Woche beginnt am",
+      "monday": "Montag",
+      "sunday": "Sonntag"
+    },
+    "hour_from": {
+      "label": "Erste angezeigte Stunde",
+      "description": "Oberer Rand der Zeitleiste. Frühere Termine werden an dieser Kante abgeschnitten."
+    },
+    "hour_to": {
+      "label": "Letzte angezeigte Stunde"
+    },
+    "px_per_minute": {
+      "label": "Zoom der Zeitleiste",
+      "description": "Pixel pro Minute. Ein Desktop-Widget kann nicht scrollen, seine Höhe ist also (letzte Stunde − erste Stunde) × 60 × dieser Wert: 07–22 bei 0.6 sind etwa 540 px. Das Panel scrollt, dort ist der Zoom frei."
+    },
+    "now_color": {
+      "label": "Farbe der Jetzt-Linie"
+    },
+    "accent": {
+      "label": "Akzentfarbe"
+    },
+    "show_all_day": {
+      "label": "Ganztägige Termine anzeigen"
+    },
+    "max_title": {
+      "label": "Max. Titellänge in der Leiste"
+    }
+  },
+  "day": {
+    "empty": "Nichts geplant"
+  },
+  "status": {
+    "waiting": "Warte auf die erste Synchronisierung…",
+    "ok": "Synchronisiert · {backend}",
+    "error": "Synchronisierung fehlgeschlagen: {error}"
+  },
+  "action": {
+    "today": "Heute",
+    "refresh": "Jetzt aktualisieren"
+  },
+  "next": {
+    "none": "Nichts anstehend",
+    "now": "jetzt",
+    "in_minutes": {
+      "one": "in {count} Min.",
+      "other": "in {count} Min."
+    },
+    "in_hours": {
+      "one": "in {count} Std.",
+      "other": "in {count} Std."
+    }
+  },
+  "tooltip": {
+    "location": "Ort",
+    "calendar": "Kalender"
+  }
+}

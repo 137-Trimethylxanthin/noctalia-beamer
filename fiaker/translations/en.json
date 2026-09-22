@@ -1,0 +1,79 @@
+{
+  "settings": {
+    "source": {
+      "label": "Event source",
+      "description": "Where events come from. 'Automatic' prefers Noctalia's own calendar service when this build exposes it, and falls back to a vdir.",
+      "auto": "Automatic",
+      "native": "Noctalia calendar service",
+      "vdir": "vdir (.ics directory)"
+    },
+    "vdir_path": {
+      "label": "vdir path",
+      "description": "Directory of .ics collections, as written by vdirsyncer. Point Noctalia's own vdir account at the same path so both read one source."
+    },
+    "window_days": {
+      "label": "Window (days)",
+      "description": "How many days either side of today to keep loaded. The month grid needs the whole window to draw its dots."
+    },
+    "refresh_seconds": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often the background service re-reads the source."
+    },
+    "week_start": {
+      "label": "Week starts on",
+      "monday": "Monday",
+      "sunday": "Sunday"
+    },
+    "hour_from": {
+      "label": "First hour shown",
+      "description": "Top of the timeline. Earlier events are clipped to this edge."
+    },
+    "hour_to": {
+      "label": "Last hour shown"
+    },
+    "px_per_minute": {
+      "label": "Timeline zoom",
+      "description": "Pixels per minute. A desktop widget cannot scroll, so its height is (last hour − first hour) × 60 × this value: 07–22 at 0.6 is about 540 px. The panel scrolls, so zoom there is free."
+    },
+    "now_color": {
+      "label": "Now-line color"
+    },
+    "accent": {
+      "label": "Accent color"
+    },
+    "show_all_day": {
+      "label": "Show all-day events"
+    },
+    "max_title": {
+      "label": "Max title length in the bar"
+    }
+  },
+  "day": {
+    "empty": "Nothing scheduled"
+  },
+  "status": {
+    "waiting": "Waiting for the first sync…",
+    "ok": "Synced · {backend}",
+    "error": "Sync failed: {error}"
+  },
+  "action": {
+    "today": "Today",
+    "refresh": "Refresh now"
+  },
+  "next": {
+    "none": "Nothing upcoming",
+    "now": "now",
+    "in_minutes": {
+      "one": "in {count} min",
+      "other": "in {count} min"
+    },
+    "in_hours": {
+      "one": "in {count} h",
+      "other": "in {count} h"
+    }
+  },
+  "tooltip": {
+    "location": "Location",
+    "calendar": "Calendar"
+  }
+}
