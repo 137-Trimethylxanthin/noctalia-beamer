@@ -66,10 +66,10 @@ start/end"*. The data is merged, expanded and in-process — it simply isn't rea
 Noctalia loads plugins from a git or path source:
 
 ```sh
-noctalia msg plugins source add fiaker git https://github.com/137-Trimethylxanthin/noctalia-fiaker
+noctalia msg plugins source add kaffeehaus git https://github.com/137-Trimethylxanthin/noctalia-kaffeehaus
 
 # ...or from a local checkout while developing:
-# noctalia msg plugins source add fiaker path ~/Documents/code/noctalia-fiaker
+# noctalia msg plugins source add kaffeehaus path ~/Documents/code/noctalia-kaffeehaus
 noctalia msg plugins enable 137-trimethylxanthin/fiaker
 ```
 
@@ -128,7 +128,7 @@ Both commands run from the repository root, one level up from this directory:
 
 ```sh
 noctalia plugins lint fiaker   # cross-checks declared settings against getConfig() calls
-./test/run.sh                  # pure-logic tests (date math, lanes, now-line, ICS parser)
+./tests/fiaker/run.sh          # pure-logic tests (date math, lanes, now-line, ICS parser)
 ```
 
 Editing any `.luau` file hot-reloads its entry.

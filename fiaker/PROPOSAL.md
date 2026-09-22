@@ -19,7 +19,7 @@ bar widget + panel · full box-splitting now-line from the start.
 A plugin is a directory:
 
 ```
-noctalia-fiaker/      # repo root - the plugin lives here
+fiaker/               # one plugin directory in the source
   plugin.toml          # manifest: id, version, plugin_api, entries, settings schema
   ingest.luau          # [[service]]
   month.luau           # [[desktop_widget]]
@@ -287,7 +287,7 @@ the blend of every calendar you sync.
 - [x] `lib/source*.luau` — backend picker, native stub, vdir + ICS parser
 - [x] All five entries wired through `noctalia.state`
 - [x] EN + DE translations
-- [x] `test/run.sh` — transpiles the pure modules to Lua 5.4 and asserts the math
+- [x] `tests/fiaker/run.sh` — transpiles the pure modules to Lua 5.4 and asserts the math
 
 **Next**, in order:
 
