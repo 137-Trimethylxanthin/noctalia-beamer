@@ -107,7 +107,7 @@ function M.monthTree(opts)
   end
 
   local title = os.date("%B %Y",
-    os.time({ year = opts.year, month = opts.month, day = 1, hour = 12 }))
+    date.mktime({ year = opts.year, month = opts.month, day = 1, hour = 12 }))
 
   local kids = {
     ui.row({ align = "center", gap = 6 }, {
@@ -145,7 +145,8 @@ end
 
 local function renderItem(item, accent: string, nowColor: string, pattern: string)
   if item.kind == "gap" then
-    return ui.box({ height = item.h })
+    -- The fill has to be given: a box without one paints black.
+    return ui.box({ height = item.h, fill = "surface/0" })
   end
   if item.kind == "line" then
     return ui.box({ height = item.h, fill = nowColor, radius = 1 })
@@ -250,7 +251,10 @@ function M.dayTree(opts)
     end
   end
 
-  return ui.column({ gap = 4, padding = 8 }, kids)
+  -- In the panel the column has to take the height it is given, or the scroll
+  -- box inside has nothing to be bounded by and the timeline runs past the
+  -- panel's footer.
+  return ui.column({ gap = 4, padding = 8, flexGrow = opts.scrollable and 1 or nil }, kids)
 end
 
 return M

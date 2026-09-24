@@ -28,7 +28,7 @@ local function render()
       noctalia.state.set("selected_date", iso)
     end,
     onStep = function(delta)
-      local ts = date.addMonths(os.time({ year = viewYear, month = viewMonth, day = 1, hour = 12 }), delta)
+      local ts = date.addMonths(date.mktime({ year = viewYear, month = viewMonth, day = 1, hour = 12 }), delta)
       viewYear = tonumber(os.date("%Y", ts))
       viewMonth = tonumber(os.date("%m", ts))
       noctalia.state.set("view_month", os.date("%Y-%m", ts))

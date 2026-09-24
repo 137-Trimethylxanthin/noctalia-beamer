@@ -1,7 +1,11 @@
-# Fiaker
+# Fiaker — calendar widgets for the Noctalia shell
 
 A calendar for [Noctalia](https://noctalia.dev) v5 that keeps the **month grid** and the
-**day timeline** as separate widgets, and keeps them in sync.
+**day timeline** as separate widgets, and keeps them in sync — desktop widgets, a panel
+and a bar widget for Hyprland and other Wayland compositors, fed from CalDAV / Google
+Calendar through a vdirsyncer `.ics` folder.
+
+![Fiaker's panel: a September month grid with event dots next to a day timeline with colored events and a red now-line](screenshots/panel.webp)
 
 Named after the Viennese coffee — and the carriage that gets you places on time.
 
@@ -137,7 +141,7 @@ Editing any `.luau` file hot-reloads its entry.
 
 - Noctalia **5.1.0+** (`plugin_api = 23`; 5.1.0 supports 3–30)
 - `vdirsyncer` for the vdir backend
-- `lua5.4` and `python3` to run the tests
+- `lua5.4` and [`uv`](https://docs.astral.sh/uv/) to run the tests
 
 ## Design notes
 

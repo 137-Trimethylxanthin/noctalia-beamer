@@ -15,13 +15,16 @@
 -- for events pinned to another zone. The native backend has no such problem.
 
 local model = require("./model.luau")
+local date = require("./date.luau")
 
 local M = {}
 
 M.needsPolling = true
 
 -- Interprets a Y/M/D h:m:s table as UTC and returns epoch seconds.
--- os.time() always reads its argument as local time, so correct by the offset.
+-- Correct under both readings of os.time(table): on Lua 5.4 (local) the
+-- offset term fixes it up; on Luau (UTC) the first line is already the answer
+-- and the offset term is zero.
 local function timegm(t): number
   local asLocal = os.time(t)
   local utcView = os.date("!*t", asLocal)
@@ -35,7 +38,7 @@ local function parseStamp(value: string, isDateOnly: boolean): (number?, boolean
   if not y then return nil, false end
 
   if isDateOnly or #value == 8 then
-    return os.time({ year = tonumber(y), month = tonumber(mo), day = tonumber(d), hour = 12 }), true
+    return date.mktime({ year = tonumber(y), month = tonumber(mo), day = tonumber(d), hour = 12 }), true
   end
 
   local h, mi, s = string.match(value, "T(%d%d)(%d%d)(%d%d)")
@@ -47,7 +50,7 @@ local function parseStamp(value: string, isDateOnly: boolean): (number?, boolean
   if string.sub(value, -1) == "Z" then
     return timegm(fields), false
   end
-  return os.time(fields), false
+  return date.mktime(fields), false
 end
 
 -- RFC 5545 line unfolding: a leading space or tab continues the previous line.
@@ -155,25 +158,56 @@ function M.fetch(opts, done)
     return
   end
 
+  -- Noctalia allows four outstanding readFileAsync calls per runtime and
+  -- refuses the rest, so reads go out at most four at a time, the next one
+  -- starting as each lands. A refused read (the budget taken elsewhere in this
+  -- runtime) falls back to a synchronous read rather than being dropped, which
+  -- would leave the countdown short and the fetch hanging forever.
+  local MAX_IN_FLIGHT = 4
   local events, recurring, pending = {}, 0, #files
-  for _, f in ipairs(files) do
-    noctalia.readFileAsync(f.path, function(contents)
-      if contents then
-        local parsed, rec = M.parseIcs(contents, f.calendar)
-        for _, ev in ipairs(parsed) do table.insert(events, ev) end
-        recurring += rec
-      end
-      pending -= 1
-      if pending == 0 then
-        if recurring > 0 then
-          noctalia.log(string.format(
-            "fiaker: %d recurring event(s) shown as a single instance - vdir backend does not expand RRULE",
-            recurring))
-        end
-        done(model.sortByStart(events), nil)
-      end
-    end)
+  local nextIndex, inFlight, finished = 1, 0, false
+
+  local function take(f, contents)
+    if contents then
+      local parsed, rec = M.parseIcs(contents, f.calendar)
+      for _, ev in ipairs(parsed) do table.insert(events, ev) end
+      recurring += rec
+    end
+    pending -= 1
   end
+
+  local function finish()
+    if finished or pending > 0 then return end
+    finished = true
+    if recurring > 0 then
+      noctalia.log(string.format(
+        "fiaker: %d recurring event(s) shown as a single instance - vdir backend does not expand RRULE",
+        recurring))
+    end
+    done(model.sortByStart(events), nil)
+  end
+
+  local pump
+  pump = function()
+    while inFlight < MAX_IN_FLIGHT and nextIndex <= #files do
+      local f = files[nextIndex]
+      nextIndex += 1
+      inFlight += 1
+      local accepted = noctalia.readFileAsync(f.path, function(contents)
+        inFlight -= 1
+        take(f, contents)
+        pump()
+        finish()
+      end)
+      if not accepted then
+        inFlight -= 1
+        take(f, noctalia.readFile(f.path))
+      end
+    end
+    finish()
+  end
+
+  pump()
 end
 
 return M

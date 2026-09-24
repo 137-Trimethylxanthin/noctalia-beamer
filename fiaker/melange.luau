@@ -35,7 +35,7 @@ local function render()
     accent = noctalia.getConfig("accent"),
     onSelect = function(iso) noctalia.state.set("selected_date", iso) end,
     onStep = function(delta)
-      local ts = date.addMonths(os.time({ year = viewYear, month = viewMonth, day = 1, hour = 12 }), delta)
+      local ts = date.addMonths(date.mktime({ year = viewYear, month = viewMonth, day = 1, hour = 12 }), delta)
       noctalia.state.set("view_month", os.date("%Y-%m", ts))
     end,
   })

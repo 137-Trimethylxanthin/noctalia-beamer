@@ -2,16 +2,31 @@
 -- Date math. Luau ships the standard `os` library, so os.date("*t", ts) and
 -- os.time(t) do the real work - no hand-rolled epoch arithmetic needed.
 --
+-- One catch: Luau's os.time(table) reads the table as UTC, where Lua 5.4 (the
+-- test runner) reads it as local time. Every table-to-epoch conversion goes
+-- through M.mktime, which gives local time under both.
+--
 -- Every day-shifting helper anchors at 12:00 before normalizing. Anchoring at
 -- midnight breaks on DST transition days, where 00:00 may not exist or may
 -- occur twice; noon always exists.
 
 local M = {}
 
+-- os.time(t) for a table of local wall-clock fields, under either reading.
+-- The round trip through os.date("*t") shows how far os.time's reading is
+-- from local time; it is zero on Lua 5.4. The offset is measured a second
+-- time at the corrected instant, so a DST change between the two readings
+-- does not leave it an hour out.
+function M.mktime(t): number
+  local guess = os.time(t)
+  local first = guess - (os.time(os.date("*t", guess)) - guess)
+  return guess - (os.time(os.date("*t", first)) - first)
+end
+
 function M.startOfDay(ts: number): number
   local t = os.date("*t", ts)
   t.hour, t.min, t.sec, t.isdst = 0, 0, 0, nil
-  return os.time(t)
+  return M.mktime(t)
 end
 
 function M.endOfDay(ts: number): number
@@ -23,7 +38,7 @@ function M.addDays(ts: number, n: number): number
   local t = os.date("*t", ts)
   t.day = t.day + n
   t.hour, t.min, t.sec, t.isdst = 12, 0, 0, nil
-  return M.startOfDay(os.time(t))
+  return M.startOfDay(M.mktime(t))
 end
 
 function M.addMonths(ts: number, n: number): number
@@ -31,7 +46,7 @@ function M.addMonths(ts: number, n: number): number
   t.month = t.month + n
   t.day = 1
   t.hour, t.min, t.sec, t.isdst = 12, 0, 0, nil
-  return M.startOfDay(os.time(t))
+  return M.startOfDay(M.mktime(t))
 end
 
 function M.iso(ts: number): string
@@ -42,7 +57,7 @@ function M.fromIso(s: string?): number?
   if type(s) ~= "string" then return nil end
   local y, m, d = string.match(s, "^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
   if not y then return nil end
-  return M.startOfDay(os.time({
+  return M.startOfDay(M.mktime({
     year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12,
   }))
 end
@@ -70,7 +85,7 @@ M.columnFor = columnFor
 -- A 6x7 grid covering `month`, padded with the surrounding days so every row is
 -- a full week. Always 42 cells, so the widget never changes height mid-year.
 function M.monthGrid(year: number, month: number, mondayFirst: boolean, todayTs: number)
-  local first = os.time({ year = year, month = month, day = 1, hour = 12 })
+  local first = M.mktime({ year = year, month = month, day = 1, hour = 12 })
   local offset = columnFor(os.date("*t", first).wday, mondayFirst)
   local cursor = M.addDays(first, -offset)
   local today = M.startOfDay(todayTs)
@@ -94,7 +109,7 @@ end
 -- Weekday headers in the configured order, e.g. Mo Di Mi ... (locale-driven).
 function M.weekdayHeaders(mondayFirst: boolean): { string }
   -- 2024-01-01 was a Monday; walk from there so the labels come from the locale.
-  local monday = os.time({ year = 2024, month = 1, day = 1, hour = 12 })
+  local monday = M.mktime({ year = 2024, month = 1, day = 1, hour = 12 })
   local out = {}
   for i = 0, 6 do
     local ts = M.addDays(monday, mondayFirst and i or (i - 1))
