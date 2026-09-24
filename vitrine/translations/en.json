@@ -1,11 +1,14 @@
 {
-  "title": "Beamer",
+  "title": "Vitrine",
   "active": "Active",
   "failed": "Could not change the display layout",
   "nothing-attached": "Nothing plugged in yet",
+  "lid-closed": "The lid is closed, so the built-in screen stays off",
+  "no-mirror": "Duplicate needs Hyprland: other compositors cannot mirror a screen",
+  "not-up": "The external screen did not come on, so the built-in one stays on",
   "unavailable": {
-    "title": "Hyprland only",
-    "subtitle": "Beamer drives monitors through hyprctl, which is not available here"
+    "title": "No display control here",
+    "subtitle": "Vitrine needs Hyprland, or uv and a compositor with wlr-output-management"
   },
   "mode": {
     "extend": {

@@ -1,0 +1,31 @@
+{
+  "title": "Vitrine",
+  "active": "Aktiv",
+  "failed": "Die Bildschirmanordnung ließ sich nicht ändern",
+  "nothing-attached": "Noch nichts angesteckt",
+  "lid-closed": "Der Deckel ist zu, also bleibt der eingebaute Bildschirm aus",
+  "no-mirror": "Duplizieren braucht Hyprland: andere Compositors können keinen Bildschirm spiegeln",
+  "not-up": "Der externe Bildschirm ist nicht angegangen, also bleibt der eingebaute an",
+  "unavailable": {
+    "title": "Hier keine Bildschirmsteuerung",
+    "subtitle": "Vitrine braucht Hyprland, oder uv und einen Compositor mit wlr-output-management"
+  },
+  "mode": {
+    "extend": {
+      "title": "Erweitern",
+      "subtitle": "Der externe Bildschirm bekommt eigene Arbeitsflächen"
+    },
+    "mirror": {
+      "title": "Duplizieren",
+      "subtitle": "Der externe Bildschirm zeigt dasselbe wie der eingebaute"
+    },
+    "external": {
+      "title": "Nur extern",
+      "subtitle": "Eingebauter Bildschirm aus"
+    },
+    "internal": {
+      "title": "Nur Laptop",
+      "subtitle": "Externer Bildschirm aus"
+    }
+  }
+}

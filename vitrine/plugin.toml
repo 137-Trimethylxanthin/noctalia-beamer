@@ -1,0 +1,28 @@
+id = "137-trimethylxanthin/vitrine"
+name = "Vitrine"
+version = "1.0.0"
+plugin_api = 24   # argv form of runAsync, for hyprctl and the wlr helper
+author = "137-trimethylxanthin"
+license = "MIT"
+icon = "devices"
+deprecated = false
+description = "A Win+P display switcher: extend, duplicate, external only and laptop only, from the launcher, a tile or one key. Any compositor with wlr-output-management; duplicate on Hyprland."
+tags = ["launcher", "shortcut", "service", "hardware", "display"]
+# hyprctl on Hyprland, uv everywhere else: checked at runtime.
+dependencies = []
+
+[[launcher_provider]]
+id = "provider"
+entry = "provider.luau"
+prefix = "display"
+glyph = "devices"
+include_in_global_search = false
+debounce_ms = 0
+
+[[service]]
+id = "control"
+entry = "control.luau"
+
+[[shortcut]]
+id = "cycle"
+entry = "shortcut.luau"
