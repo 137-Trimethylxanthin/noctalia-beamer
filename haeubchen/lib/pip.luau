@@ -31,6 +31,13 @@ end
 function M.corner(area, corner, fraction, margin)
   local w = math.floor(area.w * fraction + 0.5)
   local h = math.floor(w * 9 / 16 + 0.5)
+  -- On a very wide screen a large fraction would be taller than the area:
+  -- fit the height, and keep 16:9 by narrowing.
+  local maxH = area.h - 2 * margin
+  if maxH > 0 and h > maxH then
+    h = math.floor(maxH)
+    w = math.floor(h * 16 / 9 + 0.5)
+  end
 
   local x
   if corner == "bottom_left" or corner == "top_left" then

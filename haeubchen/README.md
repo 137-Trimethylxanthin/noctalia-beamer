@@ -1,4 +1,4 @@
-# Häubchen — picture-in-picture for Hyprland, sway and niri
+# Häubchen — picture-in-picture for Hyprland, sway, Scroll, niri and MangoWC
 
 **A [Noctalia](https://noctalia.dev) shell plugin that gives any Wayland window a
 floating, always-on-top picture-in-picture mode** — a Twitch or YouTube stream,
@@ -38,9 +38,17 @@ One of these compositors, detected at startup:
 | --- | --- | --- |
 | **Hyprland** | `hyprctl`, `socat` | Built and tested on 0.56 with the Lua config parser |
 | **sway** | `swaymsg` | Written against sway's IPC, not yet tested on a real session |
+| **Scroll** | `scrollmsg` | sway's IPC, so the sway backend with Scroll's own program; not yet tested |
 | **niri** | `niri`, `socat` | Written against niri-ipc, not yet tested on a real session |
+| **MangoWC** | `mmsg` | Written against Mango 0.17.3's IPC, not yet tested on a real session |
+| labwc | | Not supported: no IPC that can float, move or resize a window |
+| dwl | | Not supported: no IPC at all; its IPC patches only cover tags and layout |
+| Triad | | Not supported: it moves only the focused floating window, by relative steps |
+| Umbriel | | Not supported: no absolute move or resize, and pin acts on the focused window only |
 
-Missing tools are reported in a notification when the plugin starts.
+Missing tools, or a compositor Häubchen cannot drive, are reported once in a
+notification, and `/pip` says so at the top. `/pip twitch …` and friends still
+open the stream in the player there; it just stays a normal window.
 
 For `/pip twitch …` and friends, a player: mpv by default, which needs `yt-dlp`
 to open Twitch and YouTube (`uv tool install yt-dlp`). Following a window you
@@ -57,6 +65,16 @@ taken out of fullscreen before it goes into the corner, because hyprlang's
 **sway.** The corner window is made floating and `sticky`, which keeps it on
 screen across workspace switches on its output. The bar is respected: the
 corner is placed inside the focused workspace's area.
+
+**Scroll.** Floating, `sticky` and absolute placement are sway's; Scroll's own
+`pin` (a column pinned to a screen edge) is not used. Leaving the corner puts
+the window back into the scrolling row at the focused position, which may not
+be its old column.
+
+**MangoWC.** The corner window is made floating and *global*, Mango's way of
+showing a window on every tag of its monitor. Workspaces are tags, one set per
+monitor. Mango reports the whole monitor, bar included, so if the corner
+overlaps your bar, raise the margin.
 
 **niri.** niri has no way to pin a window to every workspace, so Häubchen moves
 it along: each time you switch workspace, the corner window is moved to the new
@@ -99,8 +117,10 @@ definition, so with auto-follow on it goes straight into the corner.
 What counts as *switching away* is the window's workspace leaving the screen,
 not focus leaving the window. Clicking a terminal tiled next to the stream does
 nothing; switching to another workspace sends the stream to the corner. With
-several monitors, the corner is on the monitor you are on, and the stream only
-moves if its workspace is not visible on any of them.
+several monitors, the stream only moves if its workspace is not visible on any
+of them, and it goes into the corner of the monitor you are on at that moment.
+On Hyprland, sway, Scroll and MangoWC it then stays on that monitor; on niri
+it follows your workspace switches.
 
 Leaving the corner restores the window the way it was: tiled back into its
 workspace, back to its floating position and size, or back to fullscreen.
@@ -147,7 +167,9 @@ controls on hover.
 ### Hiding it for a moment
 
 **Hide** sends the stream home and keeps it out of the corner until you press
-it again, or until you visit its workspace, which resumes the normal behavior.
+it again, or until you leave its workspace and come back to it, which resumes
+the normal behavior. Pressed while you are looking at the stream, it keeps it
+from going into the corner when you switch away.
 Bind it to a key (below) to get the corner player out of the way for a
 screenshot or a call.
 
@@ -230,9 +252,14 @@ putting it back home if it was in the corner.
 **Closing.** *Stop following* on a window that Häubchen opened with the player
 closes the player. On any other window it only lets go.
 
-**Tests.** `./tests/haeubchen/run.sh` covers the decisions and each backend's
-parsing of compositor output; moving windows is only covered by hand, on
-Hyprland.
+**Tests.** `./tests/haeubchen/run.sh` covers the decisions, each backend's
+parsing of compositor output, and the commands the Mango backend builds;
+moving windows is only covered by hand, on Hyprland.
+
+**It recovers.** If the compositor's event stream ends (the compositor
+restarted, the socket went away), Häubchen follows it again a few seconds
+later, and a check every five seconds covers the gap. A step the compositor
+never answers is given up after fifteen seconds, so the queue never wedges.
 
 **Nothing is left pinned.** When Noctalia quits, the plugin is disabled, or the
 service reloads, a window in the corner is put back first. A crash or `SIGKILL`

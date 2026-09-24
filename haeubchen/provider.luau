@@ -31,6 +31,29 @@ local function iconFor(class)
   return icons[class] or nil
 end
 
+-- Why nothing can be followed here, as a row, or nil when all is well.
+local function idleRow()
+  local status = noctalia.state.get("status") or {}
+  if status.reason == "unsupported" then
+    return {
+      id = "",
+      title = noctalia.tr("unsupported.title"),
+      subtitle = noctalia.tr("unsupported.named", { compositor = status.detail or noctalia.tr("unsupported.this") }),
+      glyph = "plug-off",
+      score = 500,
+    }
+  elseif status.reason == "missing" then
+    return {
+      id = "",
+      title = noctalia.tr("row.missing.title"),
+      subtitle = noctalia.tr("missing", { tools = status.detail or "" }),
+      glyph = "plug-off",
+      score = 500,
+    }
+  end
+  return nil
+end
+
 local function statusRows(filter)
   local status = noctalia.state.get("status") or { mode = "idle" }
   if status.mode == "idle" or filter ~= "" then
@@ -58,6 +81,9 @@ local function build(query)
   local text = noctalia.string.trim(query)
   local rows = {}
 
+  local idle = idleRow()
+
+  -- Playing works everywhere; only following the player needs a backend.
   local url = pip.parsePlayable(text)
   if url ~= nil then
     table.insert(rows, {
@@ -67,6 +93,14 @@ local function build(query)
       glyph = "player-play",
       score = 400,
     })
+    if idle ~= nil then
+      table.insert(rows, idle)
+    end
+    return rows
+  end
+
+  if idle ~= nil then
+    table.insert(rows, idle)
     return rows
   end
 
@@ -108,7 +142,7 @@ end
 
 function onQuery(query)
   launcher.setResults(query, build(query))
-  if backend == nil then
+  if backend == nil or idleRow() ~= nil then
     return
   end
   backend.list(function(list)

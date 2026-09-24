@@ -19,6 +19,10 @@ check("top-left clears the bar", tl.y == 35 + 16 and tl.x == 16, tl.x .. "," .. 
 local s = pip.corner({ x = 2048, y = 0, w = 1920, h = 1080 }, "bottom_left", 0.25, 10)
 check("offset by the area origin", s.x == 2058, s.x)
 
+local wide = pip.corner({ x = 0, y = 0, w = 5120, h = 1440 }, "bottom_right", 0.5, 16)
+check("32:9 at half size fits the height", wide.h <= 1440 - 32 and wide.y >= 16, wide.w .. "x" .. wide.h .. "@" .. wide.y)
+check("and keeps 16:9", math.abs(wide.w / wide.h - 16 / 9) < 0.01)
+
 print("== decide (can pin) ==")
 local vis = { [1] = true }
 local onHome = { ws = 1, sticky = false, floating = false }

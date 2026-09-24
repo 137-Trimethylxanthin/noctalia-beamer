@@ -7,15 +7,16 @@
 
 id           = "137-trimethylxanthin/haeubchen"
 name         = "Häubchen"
-version      = "0.1.0"
+version      = "0.2.0"
 plugin_api   = 24   # argv form of runAsync; also brings module-require and service-lifecycle
 author       = "137-trimethylxanthin"
 license      = "MIT"
 icon         = "picture-in-picture"
 deprecated   = false
 description  = "Picture-in-picture for any window or stream: it follows you into a corner when you leave its workspace."
-tags         = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "niri"]
-# Per compositor, so checked at runtime: hyprctl + socat, swaymsg, or niri + socat.
+tags         = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "scroll", "niri", "mango"]
+# Per compositor, so checked at runtime: hyprctl + socat, swaymsg, scrollmsg,
+# niri + socat, or mmsg.
 dependencies = []
 
 [[setting]]

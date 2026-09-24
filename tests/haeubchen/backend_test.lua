@@ -1,7 +1,9 @@
 -- The parsing half of each backend: compositor JSON in, neutral model out.
 -- The Hyprland fixtures are trimmed captures from Hyprland 0.56; the sway and
--- niri ones follow sway-ipc(7) and niri-ipc's structs, since neither was
--- available to capture from.
+-- niri ones follow sway-ipc(7) and niri-ipc's structs, and the Mango ones
+-- follow build_client_json / build_monitor_json in Mango 0.17.3's
+-- src/ipc/ipc.c, since none of those was available to capture from.
+package.path = "./lib/?.lua;" .. package.path
 local json = require("json")
 noctalia = {
   json = { decode = json.decode },
@@ -12,6 +14,8 @@ noctalia = {
 local hypr = require("lib.hyprland")
 local sway = require("lib.sway")
 local niri = require("lib.niri")
+local scroll = require("lib.scroll")
+local mango = require("lib.mango")
 
 local fails = 0
 local function check(name, cond, extra)
@@ -134,6 +138,79 @@ check("opened", e.kind == "open" and e.id == "30" and e.class == "haeubchen")
 check("closed", niri.parseEvent([[{"WindowClosed":{"id":30}}]]).kind == "close")
 check("workspace switch is a check", niri.parseEvent([[{"WorkspaceActivated":{"id":10,"focused":true}}]]).kind == "check")
 check("layout noise ignored", niri.parseEvent([[{"WindowLayoutsChanged":{"changes":[]}}]]) == nil)
+
+print("== hyprland, after the audit ==")
+check("lua parser: any workspace name", hypr.workspaceSpec({ id = -5, name = "web 🌐" }, true) == "name:web 🌐")
+check("lua parser: a colon and space", hypr.workspaceSpec({ id = -6, name = "1: chat" }, true) == "name:1: chat")
+check("hyprlang: a comma is refused", hypr.workspaceSpec({ id = -7, name = "a,b" }, false) == nil)
+check("hyprlang: spaces are fine", hypr.workspaceSpec({ id = -8, name = "my web" }, false) == "name:my web")
+check("control characters never", hypr.workspaceSpec({ id = -9, name = "a\nb" }, true) == nil)
+check("probe: lua", hypr.parseProbe(0, "ok") == true)
+check("probe: 'invoke' is not ok", hypr.parseProbe(0, "invoke") == false)
+check("probe: not answering is unknown", hypr.parseProbe(1, "Couldn't connect to /run/user/1000/hypr/x/.socket.sock") == nil)
+check("probe: empty is unknown", hypr.parseProbe(1, "") == nil)
+check("probe: a refusal is hyprlang", hypr.parseProbe(0, "unknown request") == false)
+local grouped = hypr.windows(json.decode([[
+[{"address":"0x1","mapped":true,"hidden":false,"at":[0,0],"size":[10,10],"workspace":{"id":1,"name":"1"},"class":"a","title":"shown"},
+ {"address":"0x2","mapped":true,"hidden":true,"at":[0,0],"size":[10,10],"workspace":{"id":1,"name":"1"},"class":"a","title":"tab"}]
+]]))
+check("inactive group tabs are left out", #grouped == 1 and grouped[1].title == "shown")
+
+print("== scroll ==")
+check("scroll is its own backend", scroll.name == "scroll" and scroll.tools[1] == "scrollmsg")
+check("sway still sway", sway.name == "sway" and sway.tools[1] == "swaymsg")
+check("same parsing", #scroll.windows(tree) == #sway.windows(tree))
+
+print("== mango ==")
+local clients = json.decode([[
+{"clients":[
+ {"id":4,"pid":100,"foreign_toplevel_id":"a","title":"VALORANT - Twitch","appid":"firefox","monitor":"eDP-1","tags":[2],
+  "is_xwayland":false,"is_visible":true,"is_focused":true,"is_fullscreen":false,"is_floating":false,"is_global":false,
+  "is_minimized":false,"is_scratchpad":false,"is_namedscratchpad":false,"x":0,"y":35,"width":1024,"height":1245},
+ {"id":7,"pid":101,"title":"notes","appid":"foot","monitor":"DP-1","tags":[1,3],"is_fullscreen":true,"is_floating":true,
+  "is_global":true,"is_scratchpad":false,"x":2100,"y":50,"width":600,"height":400},
+ {"id":9,"pid":102,"title":"scratch","appid":"foot","monitor":"eDP-1","tags":[1],"is_scratchpad":true,"x":0,"y":0,"width":1,"height":1}]}
+]])
+local mw = mango.windows(clients)
+check("scratchpad left out", #mw == 2, #mw)
+check("fields", mw[1].id == "4" and mw[1].class == "firefox" and mw[1].ws == "eDP-1:2" and mw[1].wsLabel == "2"
+  and not mw[1].floating and not mw[1].sticky and mw[1].fullscreen == 0 and mw[1].w == 1024)
+check("lowest tag, global is sticky, fullscreen", mw[2].ws == "DP-1:1" and mw[2].sticky and mw[2].floating and mw[2].fullscreen == 1)
+check("ids are digits only", mango.id("4") == "4" and mango.id("4; rm -rf ~") == nil and mango.id(0) == nil and mango.id("0") == nil)
+local monitors = json.decode([[
+{"monitors":[
+ {"name":"eDP-1","active":true,"x":0,"y":0,"width":2048,"height":1280,"scale":1.25,"active_tags":[2]},
+ {"name":"DP-1","active":false,"x":2048,"y":0,"width":1920,"height":1080,"scale":1.0,"active_tags":[1,4]}]}
+]])
+local msc = mango.screen(monitors)
+check("each monitor's active tags visible", msc.visible["eDP-1:2"] and msc.visible["DP-1:1"] and msc.visible["DP-1:4"] and not msc.visible["eDP-1:1"])
+check("area is the active monitor", msc.area.w == 2048 and msc.area.h == 1280 and msc.area.x == 0)
+check("workspace to carry to", msc.workspace.monitor == "eDP-1" and msc.workspace.tag == 2)
+local enter = mango.enterDispatches(mw[1], { x = 1520, y = 976, w = 512, h = 288 })
+check("enter: move (floats it), size, global", enter[1] == "movewin,1520,976" and enter[2] == "resizewin,512,288" and enter[3] == "toggleglobal" and #enter == 3, table.concat(enter, " "))
+local enterFs = mango.enterDispatches(mw[2], { x = 10, y = 10, w = 512, h = 288 })
+check("enter: out of fullscreen first, already global", enterFs[1] == "togglefullscreen" and enterFs[#enterFs] ~= "toggleglobal", table.concat(enterFs, " "))
+check("negative targets go relative", mango.placeDispatches({ x = 100, y = 0 }, { x = -1820, y = 40, w = 10, h = 10 })[1] == "movewin,-1920,40")
+check("positive delta from a negative spot", mango.placeDispatches({ x = -1920, y = 0 }, { x = -1800, y = 5, w = 10, h = 10 })[1] == "movewin,+120,5")
+local exit = mango.exitDispatches({ home = { tag = 2 }, orig = { floating = false } },
+  { sticky = true, floating = true, fullscreen = 0, tag = 2, x = 1520, y = 976 })
+check("exit: unglobal, retile", exit[1] == "toggleglobal" and exit[2] == "togglefloating" and #exit == 2, table.concat(exit, " "))
+local exitMoved = mango.exitDispatches({ home = { tag = 3 }, orig = { floating = true, x = 50, y = 60, w = 600, h = 400, fullscreen = 1 } },
+  { sticky = true, floating = true, fullscreen = 0, tag = 1, x = 1520, y = 976 })
+check("exit: home tag, old geometry, fullscreen again",
+  exitMoved[2] == "tagsilent,3" and exitMoved[3] == "movewin,50,60" and exitMoved[4] == "resizewin,600,400" and exitMoved[5] == "togglefullscreen",
+  table.concat(exitMoved, " "))
+local events, known = mango.diffClients(nil, clients)
+check("first snapshot: only a check", #events == 1 and events[1].kind == "check" and known["4"] and known["7"])
+local later = json.decode([[{"clients":[
+ {"id":7,"title":"notes","appid":"foot","monitor":"DP-1","tags":[1],"x":0,"y":0,"width":1,"height":1},
+ {"id":12,"title":"mpv","appid":"haeubchen","monitor":"eDP-1","tags":[2],"x":0,"y":0,"width":1,"height":1}]}]])
+events = mango.diffClients(known, later)
+local kinds = {}
+for _, ev in ipairs(events) do kinds[ev.kind .. (ev.id or "")] = ev end
+check("new client opens with its class", kinds["open12"] and kinds["open12"].class == "haeubchen")
+check("gone client closes", kinds["close4"] ~= nil)
+check("and a check", kinds["check"] ~= nil)
 
 print()
 if fails > 0 then print(fails .. " failed"); os.exit(1) end

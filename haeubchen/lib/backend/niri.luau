@@ -16,6 +16,8 @@
 -- the IPC does not say how big the bar is, so the corner is computed on the
 -- whole output. With a bar on the corner's edge, raise the margin.
 
+local stream = require("./stream.luau")
+
 local M = { name = "niri", canPin = false, tools = { "niri", "socat" } }
 
 function M.id(value)
@@ -159,9 +161,16 @@ local function toWorkspace(id, ws)
   return string.format('{"Action":{"MoveWindowToWorkspace":{"window_id":%s,"reference":{"Id":%d},"focus":false}}}', id, ws)
 end
 
-function M.enter(window, rect, _screen, done)
+-- The window is on its home workspace, which has just left the screen, so it
+-- is brought over to the one on screen in the same step.
+function M.enter(window, rect, screen, done)
   local w, h = size(window.id, rect.w, rect.h)
-  send({ floating(window.id), w, h, place(window.id, rect.x, rect.y) }, done)
+  local actions = { floating(window.id), w, h }
+  if type(screen.workspace) == "number" then
+    table.insert(actions, toWorkspace(window.id, screen.workspace))
+  end
+  table.insert(actions, place(window.id, rect.x, rect.y))
+  send(actions, done)
 end
 
 function M.carry(window, rect, screen, done)
@@ -208,8 +217,10 @@ end
 
 -- ── Reading ──────────────────────────────────────────────────────────────────
 
+-- Always calls `done` exactly once, nil on any failure, including a refused
+-- runAsync: the service's queue waits on it.
 local function readJson(what, done)
-  noctalia.runAsync({ "niri", "msg", "--json", what }, function(result)
+  local accepted = noctalia.runAsync({ "niri", "msg", "--json", what }, function(result)
     if result.exitCode ~= 0 then
       return done(nil)
     end
@@ -219,6 +230,9 @@ local function readJson(what, done)
     end
     done(value)
   end)
+  if not accepted then
+    done(nil)
+  end
 end
 
 function M.read(done)
@@ -283,18 +297,21 @@ function M.parseEvent(line)
 end
 
 function M.available()
-  return socket() ~= nil
+  local path = socket()
+  return path ~= nil and noctalia.fileExists(path)
 end
 
+local events = nil
+
 function M.start(onEvent)
-  local ok = noctalia.runStream("niri msg --json event-stream", function(line)
-    local event = M.parseEvent(line)
-    if event ~= nil then
-      onEvent(event)
-    end
-  end)
-  onEvent({ kind = "check" })
-  return ok
+  events = stream.follow("niri msg --json event-stream", M.parseEvent, onEvent)
+  return events.listen()
+end
+
+function M.tick()
+  if events ~= nil then
+    events.tick()
+  end
 end
 
 return M

@@ -31,6 +31,9 @@
     "reset": {
       "title": "Reset size and position",
       "subtitle": "Back to the corner and size from the settings"
+    },
+    "missing": {
+      "title": "Tools missing"
     }
   },
   "settings": {
@@ -66,6 +69,9 @@
   "missing": "Missing on this system: {tools}",
   "unsupported": {
     "title": "Compositor not supported",
-    "subtitle": "Häubchen works on Hyprland, sway and niri"
-  }
+    "subtitle": "Häubchen works on Hyprland, sway, Scroll, niri and MangoWC",
+    "named": "Häubchen cannot move windows on {compositor}",
+    "this": "this compositor"
+  },
+  "opening-unfollowed": "Opening {url}. Häubchen cannot follow it here, so it stays a normal window"
 }

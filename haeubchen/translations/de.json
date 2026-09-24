@@ -31,6 +31,9 @@
     "reset": {
       "title": "Größe und Position zurücksetzen",
       "subtitle": "Zurück zu Ecke und Größe aus den Einstellungen"
+    },
+    "missing": {
+      "title": "Werkzeuge fehlen"
     }
   },
   "settings": {
@@ -66,6 +69,9 @@
   "missing": "Fehlt auf diesem System: {tools}",
   "unsupported": {
     "title": "Compositor nicht unterstützt",
-    "subtitle": "Häubchen läuft unter Hyprland, sway und niri"
-  }
+    "subtitle": "Häubchen läuft auf Hyprland, sway, Scroll, niri und MangoWC",
+    "named": "Häubchen kann auf {compositor} keine Fenster verschieben",
+    "this": "diesem Compositor"
+  },
+  "opening-unfollowed": "Öffne {url}. Häubchen kann es hier nicht verfolgen, es bleibt ein normales Fenster"
 }

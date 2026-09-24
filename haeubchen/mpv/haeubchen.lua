@@ -47,6 +47,11 @@ local function setOsc(options)
 end
 
 mp.observe_property("user-data/haeubchen/pip", "native", function(_, value)
+  -- The first call, before Häubchen has said anything, leaves the user's own
+  -- osc.conf alone.
+  if value == nil then
+    return
+  end
   inCorner = value == true
   setOsc(inCorner and CORNER_OSC or HOME_OSC)
 end)

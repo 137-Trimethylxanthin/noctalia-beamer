@@ -16,6 +16,8 @@
 -- Pinned windows ride along to whatever workspace becomes active on their
 -- monitor, which is exactly what the corner needs.
 
+local stream = require("./stream.luau")
+
 local M = { name = "hyprland", canPin = true, tools = { "hyprctl", "socat" } }
 
 -- A window address as hyprctl prints it in JSON ("0x5591…"). socket2 events
@@ -34,8 +36,11 @@ end
 
 -- How a workspace is named to a dispatcher. Normal workspaces go by id; named
 -- and special ones have negative ids that are not stable, so they go by name.
--- nil when the name could smuggle anything but a workspace into a command.
-function M.workspaceSpec(workspace)
+-- On the Lua parser the name travels inside a %q Lua string, so any name
+-- works ("web 🌐", "1: chat"); hyprlang splits a batch on ";" and its
+-- arguments on ",", so a name holding either, a quote or a control character
+-- is refused there. nil when the name cannot be passed on safely.
+function M.workspaceSpec(workspace, lua)
   if type(workspace) ~= "table" then
     return nil
   end
@@ -43,7 +48,10 @@ function M.workspaceSpec(workspace)
   if type(id) == "number" and id > 0 then
     return tostring(math.floor(id))
   end
-  if type(name) ~= "string" or not string.match(name, "^[%w%-_:.]+$") then
+  if type(name) ~= "string" or name == "" or string.find(name, "%c") then
+    return nil
+  end
+  if not lua and string.find(name, "[,;'\"]") then
     return nil
   end
   if string.sub(name, 1, 8) == "special:" then
@@ -101,7 +109,8 @@ end
 
 function M.window(client)
   local id = M.id(client.address)
-  if id == nil or client.mapped == false then
+  -- `hidden` is an inactive tab of a window group: not a window you can see.
+  if id == nil or client.mapped == false or client.hidden == true then
     return nil
   end
   local workspace = client.workspace or {}
@@ -134,8 +143,12 @@ function M.windows(clients)
   return out
 end
 
+local function isLua()
+  return noctalia.state.get("hypr_lua") ~= false
+end
+
 function M.homeOf(window)
-  return { ws = window.ws, spec = M.workspaceSpec(window.workspace) }
+  return { ws = window.ws, spec = M.workspaceSpec(window.workspace, isLua()) }
 end
 
 -- ── Commands ─────────────────────────────────────────────────────────────────
@@ -188,10 +201,6 @@ local function legacyOp(address, op, pinned)
   -- hyprlang's fullscreenstate only acts on the focused window, so a
   -- fullscreen player is left alone there rather than a wrong window changed.
   return nil
-end
-
-local function isLua()
-  return noctalia.state.get("hypr_lua") ~= false
 end
 
 -- The argv for one step. `pinned` is whether the window is pinned right now;
@@ -271,10 +280,11 @@ function M.enter(window, rect, _screen, done)
   apply(window.id, enterOps(window, rect), window.sticky, done)
 end
 
--- Only reached when focus moved to another monitor: a pin keeps the window on
--- its own monitor, so it is moved over and pinned again there.
+-- A pinned window rides along with its own monitor's active workspace, so
+-- this is only reached when that monitor went away: it is moved to the
+-- focused monitor's workspace and pinned again there.
 function M.carry(window, rect, screen, done)
-  local spec = M.workspaceSpec(screen.workspace)
+  local spec = M.workspaceSpec(screen.workspace, isLua())
   if spec == nil then
     return done()
   end
@@ -287,13 +297,15 @@ function M.carry(window, rect, screen, done)
   }, window.sticky, done)
 end
 
+-- `t.sticky` is whether the window was pinned at the last look; hyprlang's pin
+-- is a toggle, so it must not be sent to a window the user already unpinned.
 function M.exit(t, done)
-  apply(t.id, exitOps(t), true, done)
+  apply(t.id, exitOps(t), t.sticky ~= false, done)
 end
 
 -- Fire and forget, for onExit: the entry is gone before hyprctl answers.
 function M.exitDetached(t)
-  noctalia.runAsync(M.argv(t.id, exitOps(t), true))
+  noctalia.runAsync(M.argv(t.id, exitOps(t), t.sticky ~= false))
 end
 
 function M.focusHome(home)
@@ -317,8 +329,10 @@ end
 
 -- ── Reading ──────────────────────────────────────────────────────────────────
 
+-- Always calls `done` exactly once, nil on any failure, including a refused
+-- runAsync: the service's queue waits on it.
 local function readJson(what, done)
-  noctalia.runAsync({ "hyprctl", "-j", what }, function(result)
+  local accepted = noctalia.runAsync({ "hyprctl", "-j", what }, function(result)
     if result.exitCode ~= 0 then
       return done(nil)
     end
@@ -328,6 +342,9 @@ local function readJson(what, done)
     end
     done(value)
   end)
+  if not accepted then
+    done(nil)
+  end
 end
 
 -- `done(screen, windows)`, both nil when hyprctl is not answering.
@@ -393,45 +410,100 @@ function M.parseEvent(line)
   return nil
 end
 
-function M.available()
-  return noctalia.getenv("HYPRLAND_INSTANCE_SIGNATURE") ~= nil
-end
-
--- Probes the parser, then follows socket2. `onEvent` gets neutral events.
-function M.start(onEvent)
+local function paths()
   local runtime = noctalia.getenv("XDG_RUNTIME_DIR")
   local signature = noctalia.getenv("HYPRLAND_INSTANCE_SIGNATURE")
   if runtime == nil or signature == nil
     or not string.match(signature, "^[%w_]+$") or not string.match(runtime, "^[%w/_%-.]+$") then
-    return false
+    return nil
   end
-  local command = string.format("socat -U - UNIX-CONNECT:'%s/hypr/%s/.socket2.sock'", runtime, signature)
+  local dir = runtime .. "/hypr/" .. signature
+  return dir .. "/.socket.sock", dir .. "/.socket2.sock"
+end
 
-  local function listen()
-    noctalia.runStream(command, function(line)
-      local event = M.parseEvent(line)
-      if event ~= nil then
-        onEvent(event)
-      end
-    end)
-    onEvent({ kind = "check" })
-  end
+-- The variable alone is not enough: one left behind in the systemd user
+-- environment after logging out of Hyprland would pick it on another
+-- compositor.
+function M.available()
+  local control = paths()
+  return control ~= nil and noctalia.fileExists(control)
+end
 
-  -- Events only start once the parser is known, so no command goes out in
-  -- the wrong dialect.
-  if noctalia.state.get("hypr_lua") ~= nil then
-    listen()
+-- What `hyprctl eval 'return 1'` says about the config parser: true for Lua
+-- ("ok"), false for a definite refusal from a hyprlang Hyprland, nil when it
+-- could not tell (Hyprland not answering yet), which is probed again later.
+function M.parseProbe(exitCode, output)
+  output = output or ""
+  if exitCode == 0 and string.match(output, "^%s*ok%s*$") then
     return true
   end
+  local lower = string.lower(output)
+  if output == "" or string.find(lower, "connect", 1, true) or string.find(lower, "no such file", 1, true)
+    or string.find(lower, "timed out", 1, true) or string.find(lower, "refused", 1, true) then
+    return nil
+  end
+  return false
+end
+
+local events = nil
+local probing = false
+
+local function probe(done)
+  if probing then
+    return
+  end
+  probing = true
   local accepted = noctalia.runAsync({ "hyprctl", "eval", "return 1" }, function(result)
-    local lua = result.exitCode == 0 and string.find(result.stdout or "", "ok", 1, true) ~= nil
-    noctalia.state.set("hypr_lua", lua)
-    if not lua then
-      noctalia.log("haeubchen: hyprlang config detected; using classic dispatchers")
+    probing = false
+    local lua = M.parseProbe(result.exitCode, noctalia.string.trim((result.stdout or "") .. (result.stderr or "")))
+    if lua ~= nil then
+      noctalia.state.set("hypr_lua", lua)
+      if not lua then
+        noctalia.log("haeubchen: hyprlang config detected; using classic dispatchers")
+      end
     end
-    listen()
+    done(lua)
   end)
-  return accepted
+  if not accepted then
+    probing = false
+    done(nil)
+  end
+end
+
+-- Probes the parser, then follows socket2. `onEvent` gets neutral events.
+-- Events only start once the parser is known, so no command goes out in the
+-- wrong dialect; until then every tick probes again.
+function M.start(onEvent)
+  local _, socket2 = paths()
+  if socket2 == nil then
+    return false
+  end
+  local command = string.format("socat -U - UNIX-CONNECT:'%s'", socket2)
+  events = stream.follow(command, M.parseEvent, onEvent)
+  if noctalia.state.get("hypr_lua") ~= nil then
+    return events.listen()
+  end
+  probe(function(lua)
+    if lua ~= nil then
+      events.listen()
+    end
+  end)
+  return true
+end
+
+function M.tick()
+  if events == nil then
+    return
+  end
+  if noctalia.state.get("hypr_lua") == nil then
+    probe(function(lua)
+      if lua ~= nil then
+        events.listen()
+      end
+    end)
+    return
+  end
+  events.tick()
 end
 
 return M

@@ -20,7 +20,18 @@
 --   noctalia msg plugin 137-trimethylxanthin/haeubchen:watch all stop
 
 local pip = require("./lib/pip.luau")
-local backend, missing = require("./lib/backend.luau").pick()
+local backends = require("./lib/backend.luau")
+local backend, missing = backends.pick()
+
+-- Why the service is idle, if it is: "unsupported" (no backend for this
+-- compositor) or "missing" (its tools are not installed). Published in
+-- status, so the launcher and the tile can say so.
+local idleReason, idleDetail = nil, nil
+if backend == nil then
+  idleReason, idleDetail = "unsupported", backends.compositorName()
+elseif #missing > 0 then
+  idleReason, idleDetail = "missing", table.concat(missing, ", ")
+end
 
 -- { id, mode, home, orig, title, class, spawned, auto }
 -- Kept in noctalia.state as well, so a hot reload picks up where it left off.
@@ -119,7 +130,13 @@ local function publish()
   noctalia.state.set("target", target)
   noctalia.state.set("declined", declined)
   if target == nil then
-    noctalia.state.set("status", { mode = "idle", backend = backend and backend.name, custom = custom ~= nil })
+    noctalia.state.set("status", {
+      mode = "idle",
+      backend = backend and backend.name,
+      custom = custom ~= nil,
+      reason = idleReason,
+      detail = idleDetail,
+    })
   else
     noctalia.state.set("status", {
       mode = target.mode,
@@ -142,19 +159,38 @@ local function autoOn()
 end
 
 -- ── The queue ────────────────────────────────────────────────────────────────
+--
+-- A job gets a `done` that works once. A job that throws is released at once;
+-- one whose callback never comes (a compositor that stopped answering) is
+-- released by the watchdog in update(), and its late `done` is ignored.
 
 local queue, running, checkQueued = {}, false, false
+local jobToken, jobStartedAt = 0, 0
+local JOB_TIMEOUT_MS = 15000
 
 local function pump()
   if running or #queue == 0 then
     return
   end
   running = true
+  jobToken += 1
+  local token = jobToken
+  jobStartedAt = noctalia.nowMs()
   local job = table.remove(queue, 1)
-  job(function()
+  local released = false
+  local function release()
+    if released or token ~= jobToken then
+      return
+    end
+    released = true
     running = false
     pump()
-  end)
+  end
+  local ok, err = pcall(job, release)
+  if not ok then
+    noctalia.log("haeubchen: a job failed: " .. tostring(err))
+    release()
+  end
 end
 
 local function enqueue(job)
@@ -172,6 +208,10 @@ end
 -- If the user dragged or resized the corner window since Häubchen placed it,
 -- remember where it is now.
 local function capture(window, screen)
+  if target ~= nil and window ~= nil then
+    -- Whether it is pinned right now, for backends whose pin is a toggle.
+    target.sticky = window.sticky
+  end
   if target == nil or target.mode ~= "pip" or window == nil or screen == nil then
     return
   end
@@ -210,16 +250,53 @@ local function begin(window, how)
   say(if how == "auto" then "following-auto" else "following", { title = if window.title ~= "" then window.title else window.class })
 end
 
+-- After a window was placed, what the compositor actually made of it becomes
+-- `placed`: a window with a minimum size bigger than the corner, a title bar
+-- counted in, or niri's bar offset must not look like a drag on the next
+-- check. A read far from the request (the compositor not done yet) is not
+-- taken.
+local function settle(rect, done)
+  backend.read(function(_screen, windows)
+    local window = target and pip.findWindow(windows, target.id)
+    if window ~= nil and rect ~= nil and math.abs(window.x - rect.x) <= 80 and math.abs(window.y - rect.y) <= 80 then
+      target.placed = { x = window.x, y = window.y, w = window.w, h = window.h }
+    end
+    done()
+  end)
+end
+
+local function onScreen(window, screen)
+  return window ~= nil and window.ws ~= nil and screen.visible[window.ws] == true
+end
+
 -- ── The check ────────────────────────────────────────────────────────────────
+
+local follow -- defined below; a check can start following the player
 
 local function checkJob(done)
   checkQueued = false
-  if target == nil and not autoOn() then
+  if target == nil and not autoOn() and awaiting == nil then
     return done()
   end
 
   backend.read(function(screen, windows)
     if screen == nil then
+      return done()
+    end
+
+    -- The player /pip opened, found by a look rather than an event, in case
+    -- the event stream missed its window.
+    if awaiting ~= nil then
+      for _, window in ipairs(windows or {}) do
+        if window.class == awaiting.class and (target == nil or window.id ~= target.id) then
+          awaiting = nil
+          follow(window.id, "spawned")
+          return done()
+        end
+      end
+    end
+
+    if target == nil and not autoOn() then
       return done()
     end
 
@@ -235,6 +312,18 @@ local function checkJob(done)
     capture(window, screen)
     local homeWs = target.home and target.home.ws
     local action = pip.decide(target.mode, homeWs, window, screen.visible, backend.canPin)
+
+    -- Hidden lasts until its workspace has been left and visited again: hide
+    -- pressed while looking at the window must not be undone by the next
+    -- event on that same workspace.
+    if target.mode == "hidden" then
+      if window ~= nil and not onScreen(window, screen) then
+        target.awayWhileHidden = true
+      end
+      if action == "unhide" and not target.awayWhileHidden then
+        action = nil
+      end
+    end
 
     if window ~= nil then
       target.title = window.title
@@ -267,13 +356,19 @@ local function checkJob(done)
       target.placed = cornerRect(screen)
       publish()
       tellPlayer(true)
-      return backend.enter(window, target.placed, screen, done)
+      local rect = target.placed
+      return backend.enter(window, rect, screen, function()
+        settle(rect, done)
+      end)
     end
 
     if action == "carry" then
       target.placed = cornerRect(screen)
       publish()
-      return backend.carry(window, target.placed, screen, done)
+      local rect = target.placed
+      return backend.carry(window, rect, screen, function()
+        settle(rect, done)
+      end)
     end
 
     if action == "exit" then
@@ -295,7 +390,7 @@ local function check()
   if backend == nil or checkQueued then
     return
   end
-  if target == nil and not autoOn() then
+  if target == nil and not autoOn() and awaiting == nil then
     return
   end
   checkQueued = true
@@ -319,7 +414,7 @@ local function release(remember, done)
   done()
 end
 
-local function follow(id, how)
+follow = function(id, how)
   id = backend.id(id)
   if id == nil then
     return
@@ -331,6 +426,11 @@ local function follow(id, how)
     if target ~= nil and target.id == id then
       if how ~= "auto" then
         target.auto = false
+      end
+      -- The player /pip opened, grabbed first by auto-follow: it is still
+      -- Häubchen's own, closed by Stop and told when it is in the corner.
+      if how == "spawned" then
+        target.spawned = true
       end
       publish()
       return done()
@@ -399,6 +499,7 @@ local function toggle()
     end
     if target.mode ~= "pip" then
       target.mode = "hidden"
+      target.awayWhileHidden = false
       publish()
       return done()
     end
@@ -407,6 +508,7 @@ local function toggle()
         return done()
       end
       target.mode = "hidden"
+      target.awayWhileHidden = false
       publish()
       tellPlayer(false)
       backend.exit(target, done)
@@ -440,20 +542,39 @@ local function back()
   end
 end
 
+local function idleMessage()
+  if idleReason == "unsupported" then
+    return noctalia.tr("unsupported.named", { compositor = idleDetail or noctalia.tr("unsupported.this") })
+  end
+  return noctalia.tr("missing", { tools = idleDetail or "" })
+end
+
 local function play(url)
   local argv = pip.playerArgv(noctalia.getConfig("player_command"), url)
   if argv == nil or not noctalia.commandExists(argv[1]) then
     return noctalia.notifyError(noctalia.tr("title"), noctalia.tr("no-player", { player = argv and argv[1] or "" }))
   end
-  awaiting = { class = noctalia.getConfig("player_class"), since = os.time() }
   mpvExtras(argv)
+  -- Without a working backend the player still opens; it is only not followed.
+  if backend == nil then
+    noctalia.runAsync(argv)
+    return say("opening-unfollowed", { url = url })
+  end
+  awaiting = { class = noctalia.getConfig("player_class"), since = os.time() }
   noctalia.runAsync(argv)
   say("opening", { url = url })
+  check()
 end
 
 local function handle(request)
-  if type(request) ~= "table" or backend == nil then
+  if type(request) ~= "table" then
     return
+  end
+  if backend == nil then
+    if request.op == "play" and type(request.url) == "string" then
+      return play(request.url)
+    end
+    return noctalia.notifyError(noctalia.tr("title"), idleMessage())
   end
   local op = request.op
   if op == "follow" then
@@ -510,23 +631,45 @@ local function onEvent(event)
   check()
 end
 
+-- Said once per session, not on every reload.
+local function tellOnce(message)
+  if noctalia.state.get("told_idle") ~= message then
+    noctalia.state.set("told_idle", message)
+    noctalia.notifyError(noctalia.tr("title"), message)
+  end
+end
+
 if backend == nil then
-  noctalia.log("haeubchen: no supported compositor (Hyprland, sway, niri); staying idle")
+  noctalia.log("haeubchen: no backend for " .. tostring(idleDetail or "this compositor") .. "; staying idle")
+  tellOnce(idleMessage())
 elseif #missing > 0 then
   noctalia.log("haeubchen: " .. backend.name .. " needs " .. table.concat(missing, ", ") .. "; staying idle")
-  noctalia.notifyError(noctalia.tr("title"), noctalia.tr("missing", { tools = table.concat(missing, ", ") }))
+  tellOnce(idleMessage())
   backend = nil
-else
-  backend.start(onEvent)
+elseif not backend.start(onEvent) then
+  noctalia.log("haeubchen: could not follow " .. backend.name .. "'s events; checking every few seconds instead")
 end
 
 -- A slow safety net for anything the events miss. Two or three reads per
 -- tick, and only while following something or watching for streams.
 noctalia.setUpdateInterval(5000)
 function update()
-  if target == nil or target.mode ~= "hidden" then
-    check()
+  if backend == nil then
+    return
   end
+  if running and noctalia.nowMs() - jobStartedAt > JOB_TIMEOUT_MS then
+    noctalia.log("haeubchen: a job never finished; moving on")
+    jobToken += 1
+    running = false
+    pump()
+  end
+  if awaiting ~= nil and os.time() - awaiting.since > 60 then
+    awaiting = nil
+  end
+  if backend.tick then
+    backend.tick()
+  end
+  check()
 end
 
 noctalia.state.watch("request", handle)
@@ -551,9 +694,12 @@ function onConfigChanged()
     return
   end
   local layout = layoutKey()
-  local changed = layout ~= lastLayout
+  if layout == lastLayout then
+    -- Auto-follow, the player command and the like: nothing to move.
+    return check()
+  end
   lastLayout = layout
-  reflow(changed)
+  reflow(true)
 end
 
 -- Never leave a window pinned in the corner with nothing looking after it.
