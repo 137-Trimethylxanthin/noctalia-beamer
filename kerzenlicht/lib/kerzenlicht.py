@@ -85,7 +85,10 @@ class Output:
         self.buffers = []
         self.clear_row = b""
         self.cursor = None
-        self.physical = False
+        # niri reports cursor-session positions in physical pixels, as the
+        # protocol says; Hyprland and wlroots in logical ones. Anywhere else
+        # a position past the logical edge gives it away (spot.looks_physical).
+        self.physical = bool(os.environ.get("NIRI_SOCKET"))
         # Every proxy is held here: pywayland keeps only weak references, and
         # a collected proxy is destroyed, along with the events it was waiting
         # for. A lost frame callback would freeze the light for good.
@@ -387,7 +390,7 @@ def main():
             print("unsupported: " + ", ".join(missing), flush=True)
             return 3
         if not app.start():
-            print("unsupported: a pointer on the seat", flush=True)
+            print("unsupported: a mouse or touchpad (the seat has no pointer)", flush=True)
             return 3
         app.run(stop_r, lambda: bool(stopped))
         return 0

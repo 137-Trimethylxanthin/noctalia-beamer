@@ -109,9 +109,15 @@ with an empty input region.
 | Compositor | Status |
 | --- | --- |
 | **Hyprland** | Tested on 0.56, with two monitors at different scales |
-| **Sway 1.11+, Scroll, Labwc, Mango, dwl** (wlroots 0.19 or newer) | wlroots has the capture protocol; not tested yet |
-| **niri** | Needs a build newer than v26.04; cursor sessions were merged on 12 September 2026 |
-| **Umbriel** | Has the protocols; not tested yet |
+| **Sway, Scroll, MangoWC, Labwc, dwl, River/Triad** | Cursor sessions since wlroots 0.19; not tested yet |
+| **niri** | Needs a build newer than v26.04: cursor sessions were merged on 12 September 2026. niri reports physical pixels, which Kerzenlicht accounts for |
+| **Umbriel** | Built on wlroots 0.20; not tested yet |
+
+**wlroots compositors and software cursors.** On wlroots, a cursor session only
+reports the position while the monitor uses a hardware cursor. With a software
+cursor the light goes out on that monitor: with `WLR_NO_HARDWARE_CURSORS=1`, in
+nested sessions, on some NVIDIA setups, and while another program records that
+monitor with the cursor painted in. Hyprland and niri are not affected.
 
 On a compositor without them, switching it on tells you which protocol is
 missing and stays off. There is no fallback, because without a cursor session

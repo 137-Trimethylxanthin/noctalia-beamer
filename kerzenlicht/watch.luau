@@ -12,7 +12,7 @@
 --   noctalia msg plugin 137-trimethylxanthin/kerzenlicht:watch all on
 --   noctalia msg plugin 137-trimethylxanthin/kerzenlicht:watch all off
 
-local TOOLS = { "uv", "pkill", "pgrep" }
+local TOOLS = { "uv", "pkill", "pgrep", "noctalia" }
 local TAG = "noctalia-kerzenlicht-"
 
 local missing = {}
@@ -95,11 +95,33 @@ done
 pkill -KILL -f -- "$1"
 ]]
 
+-- Stops still in progress, and what waits for all of them: a new light only
+-- starts once every old one is really gone, so two never overlap.
+local killing = 0
+local afterKills = {}
+
+local function whenQuiet(fn)
+  if killing == 0 then
+    fn()
+  else
+    table.insert(afterKills, fn)
+  end
+end
+
 local function kill(gen, done)
   local pattern = if gen ~= nil then ("--tag " .. tag(gen) .. "$") else ("kerzenlicht\\.py .*--tag " .. TAG)
+  killing += 1
   noctalia.runAsync({ "sh", "-c", KILL, "sh", pattern }, function()
+    killing -= 1
     if done then
       done()
+    end
+    if killing == 0 then
+      local waiting = afterKills
+      afterKills = {}
+      for _, fn in ipairs(waiting) do
+        fn()
+      end
     end
   end)
 end
@@ -109,16 +131,18 @@ local function setDnd(on)
 end
 
 -- With "Also Do Not Disturb", the flashlight turns it on and puts it back the
--- way it was when the light goes off. An answer for an earlier run is
--- ignored, or it could remember "on" from its own doing.
+-- way it was when the light goes off. An answer that arrives after the light
+-- was switched off and on again is ignored, or it could remember "on" from
+-- its own doing; a restart for new settings in between does not count.
+local dndToken = 0
 local function takeDnd()
   if noctalia.getConfig("also_dnd") ~= true then
     return
   end
-  local gen = generation
+  local token = dndToken
   noctalia.runAsync({ "noctalia", "msg", "notification-dnd-status" }, function(result)
     local text = noctalia.string.trim(result.stdout or "")
-    if gen == generation and mode ~= "off" and (text == "on" or text == "off") then
+    if token == dndToken and mode ~= "off" and (text == "on" or text == "off") then
       dndBefore = text == "on"
       if not dndBefore then
         setDnd(true)
@@ -128,6 +152,7 @@ local function takeDnd()
 end
 
 local function giveDnd()
+  dndToken += 1
   if dndBefore == false then
     setDnd(false)
   end
@@ -203,7 +228,15 @@ local function start()
     return
   end
   generation = generation + 1
-  launch(false)
+  local want = generation
+  mode = "starting"
+  startedAt = noctalia.nowMs()
+  publish()
+  whenQuiet(function()
+    if generation == want and mode == "starting" then
+      launch(false)
+    end
+  end)
 end
 
 local function stop()
@@ -233,9 +266,11 @@ local function restart()
   startedAt = noctalia.nowMs() -- or the startup timeout counts from the last launch
   publish()
   kill(gen, function()
-    if generation == want and mode == "starting" then
-      launch(true)
-    end
+    whenQuiet(function()
+      if generation == want and mode == "starting" then
+        launch(true)
+      end
+    end)
   end)
 end
 
@@ -285,8 +320,23 @@ function onIpc(event, _payload)
   handle({ op = event })
 end
 
--- A new radius, softness or brightness applies right away.
+-- A new radius, softness or brightness applies right away; other settings
+-- (Also Do Not Disturb) take effect the next time the light goes on.
+local function lightKey()
+  return table.concat({
+    tostring(number("radius", 30, RADIUS)),
+    tostring(number("softness", 15, SOFTNESS)),
+    tostring(number("brightness", 0.6, BRIGHTNESS)),
+  }, "|")
+end
+local lastLightKey = lightKey()
+
 function onConfigChanged()
+  local key = lightKey()
+  if key == lastLightKey then
+    return
+  end
+  lastLightKey = key
   restart()
 end
 

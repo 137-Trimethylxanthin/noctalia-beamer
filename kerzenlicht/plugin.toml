@@ -14,7 +14,7 @@ icon         = "bulb"
 deprecated   = false
 description  = "A spotlight for your cursor: a soft white glow follows it across every monitor, click-through. Any compositor with layer-shell and cursor sessions."
 tags         = ["shortcut", "service", "focus", "fun"]
-dependencies = ["uv", "pkill", "pgrep"]
+dependencies = ["uv", "pkill", "pgrep", "noctalia"]
 
 [[setting]]
 key             = "radius"
