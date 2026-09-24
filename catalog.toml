@@ -51,3 +51,31 @@ description = "Picture-in-picture for any window or stream: it follows you into 
 deprecated = false
 plugin_api = 24
 tags = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "niri"]
+
+[[plugin]]
+id = "137-trimethylxanthin/goschen"
+name = "Goschen"
+version = "0.1.0"
+updated_at = 1790263050
+added_at = 1790263050
+author = "137-trimethylxanthin"
+license = "MIT"
+icon = "bell-off"
+description = "Do Not Disturb that really means it: silences the pings apps like Discord play themselves, and leaves calls and your music alone."
+deprecated = false
+plugin_api = 24
+tags = ["shortcut", "service", "notifications", "audio"]
+
+[[plugin]]
+id = "137-trimethylxanthin/kerzenlicht"
+name = "Kerzenlicht"
+version = "0.1.0"
+updated_at = 1790262226
+added_at = 1790262226
+author = "137-trimethylxanthin"
+license = "MIT"
+icon = "bulb"
+description = "A spotlight for your cursor: a soft white glow follows it across every monitor, click-through. Any compositor with layer-shell and cursor sessions."
+deprecated = false
+plugin_api = 24
+tags = ["shortcut", "service", "focus", "fun"]

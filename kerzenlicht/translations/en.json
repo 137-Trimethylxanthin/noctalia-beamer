@@ -1,0 +1,24 @@
+{
+  "title": "Kerzenlicht",
+  "missing": "Missing on this system: {tools}",
+  "failed": "The flashlight did not start. See the Noctalia log",
+  "unsupported": "This compositor cannot tell Kerzenlicht where the cursor is (missing {protocols})",
+  "settings": {
+    "radius": {
+      "label": "Radius",
+      "description": "The glow around the cursor at full strength, in logical pixels"
+    },
+    "softness": {
+      "label": "Soft edge",
+      "description": "How many pixels the glow takes to fade out"
+    },
+    "brightness": {
+      "label": "Brightness",
+      "description": "How strong the white glow is, from 0.1 (a hint) to 1 (solid white, covering what is under it)"
+    },
+    "also_dnd": {
+      "label": "Also Do Not Disturb",
+      "description": "Turn Do Not Disturb on with the flashlight, and put it back the way it was afterwards"
+    }
+  }
+}

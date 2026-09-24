@@ -1,0 +1,24 @@
+{
+  "title": "Kerzenlicht",
+  "missing": "Fehlt auf diesem System: {tools}",
+  "failed": "Die Taschenlampe ist nicht angegangen. Details im Noctalia-Log",
+  "unsupported": "Dieser Compositor verrät Kerzenlicht nicht, wo der Mauszeiger ist (es fehlt {protocols})",
+  "settings": {
+    "radius": {
+      "label": "Radius",
+      "description": "Der volle Lichtschein um den Mauszeiger, in logischen Pixeln"
+    },
+    "softness": {
+      "label": "Weicher Rand",
+      "description": "Wie viele Pixel der Lichtschein braucht, um auszulaufen"
+    },
+    "brightness": {
+      "label": "Helligkeit",
+      "description": "Wie stark der weiße Lichtschein ist, von 0,1 (ein Hauch) bis 1 (deckend weiß, verdeckt, was darunter ist)"
+    },
+    "also_dnd": {
+      "label": "Auch „Nicht stören“",
+      "description": "Mit der Taschenlampe „Nicht stören“ einschalten und danach wieder so stellen wie vorher"
+    }
+  }
+}
