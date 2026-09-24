@@ -31,8 +31,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+
       - name: Rebuild catalog
-        run: python3 .github/workflows/update-catalog.py
+        run: uv run .github/workflows/update-catalog.py
 
       - name: Check for changes
         id: check_changes

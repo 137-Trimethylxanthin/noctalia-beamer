@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 import re, sys, pathlib
 
 def strip_outside_strings(src):
