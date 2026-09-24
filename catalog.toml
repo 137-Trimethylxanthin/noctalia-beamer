@@ -11,24 +11,10 @@
 # On every row, updated_at dates the commit that first shipped that row's version.
 
 [[plugin]]
-id = "137-trimethylxanthin/beamer"
-name = "Beamer"
-version = "1.0.0"
-updated_at = 1790008895
-added_at = 1790008895
-author = "137-trimethylxanthin"
-license = "MIT"
-icon = "devices"
-description = "Switch Hyprland between extend, duplicate, external only and laptop only from the launcher."
-deprecated = false
-plugin_api = 9
-tags = ["launcher", "shortcut", "service", "hardware", "hyprland"]
-
-[[plugin]]
 id = "137-trimethylxanthin/fiaker"
 name = "Fiaker"
-version = "0.1.1"
-updated_at = 1790250019
+version = "0.1.2"
+updated_at = 1790271924
 added_at = 1790008911
 author = "137-trimethylxanthin"
 license = "MIT"
@@ -41,8 +27,8 @@ tags = ["calendar", "events", "agenda", "timeline"]
 [[plugin]]
 id = "137-trimethylxanthin/haeubchen"
 name = "Häubchen"
-version = "0.1.0"
-updated_at = 1790250020
+version = "0.2.0"
+updated_at = 1790271925
 added_at = 1790250020
 author = "137-trimethylxanthin"
 license = "MIT"
@@ -50,7 +36,7 @@ icon = "picture-in-picture"
 description = "Picture-in-picture for any window or stream: it follows you into a corner when you leave its workspace."
 deprecated = false
 plugin_api = 24
-tags = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "niri"]
+tags = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "scroll", "niri", "mango"]
 
 [[plugin]]
 id = "137-trimethylxanthin/goschen"
@@ -70,8 +56,8 @@ tags = ["shortcut", "service", "notifications", "audio"]
 id = "137-trimethylxanthin/kerzenlicht"
 name = "Kerzenlicht"
 version = "0.1.0"
-updated_at = 1790262226
-added_at = 1790262226
+updated_at = 1790263070
+added_at = 1790263070
 author = "137-trimethylxanthin"
 license = "MIT"
 icon = "bulb"
@@ -79,3 +65,17 @@ description = "A spotlight for your cursor: a soft white glow follows it across 
 deprecated = false
 plugin_api = 24
 tags = ["shortcut", "service", "focus", "fun"]
+
+[[plugin]]
+id = "137-trimethylxanthin/vitrine"
+name = "Vitrine"
+version = "1.0.0"
+updated_at = 1790271919
+added_at = 1790271919
+author = "137-trimethylxanthin"
+license = "MIT"
+icon = "devices"
+description = "A Win+P display switcher: extend, duplicate, external only and laptop only, from the launcher, a tile or one key. Any compositor with wlr-output-management; duplicate on Hyprland."
+deprecated = false
+plugin_api = 24
+tags = ["launcher", "shortcut", "service", "hardware", "display"]
