@@ -113,6 +113,24 @@ for _, items in ipairs(p4.lanes) do
 end
 check("no sub-4px sliver", not sliver)
 
+
+print("== dst and lanes (audit) ==")
+local dstDay = date.startOfDay(date.mktime({ year = 2026, month = 3, day = 29, hour = 12 }))
+local nine = date.mktime({ year = 2026, month = 3, day = 29, hour = 9 })
+local dstPlan = layout.planDay({ { id = "d", title = "d", startUnix = nine, endUnix = nine + 3600, allDay = false } },
+  { dayTs = dstDay, hourFrom = 0, hourTo = 24, pxPerMinute = 1 })
+local firstGap = dstPlan.lanes[1][1]
+check("09:00 on the spring-forward day sits 8 hours down", firstGap.kind == "gap" and math.abs(firstGap.h - 480) < 1, firstGap.h)
+check("the day is 23 hours tall", math.abs(dstPlan.height - 23 * 60) < 1, dstPlan.height)
+local tiny = {}
+local base = date.mktime({ year = 2026, month = 9, day = 21, hour = 9 })
+for i = 0, 9 do
+  table.insert(tiny, { id = "t" .. i, title = "t", startUnix = base + i * 60, endUnix = base + i * 60 + 60, allDay = false })
+end
+local tinyPlan = layout.planDay(tiny, { dayTs = date.startOfDay(base), hourFrom = 8, hourTo = 23, pxPerMinute = 0.2 })
+local laneH = 0
+for _, item in ipairs(tinyPlan.lanes[1]) do laneH = laneH + item.h end
+check("a lane of tiny events is no taller than the grid", laneH <= tinyPlan.height + 0.5, laneH .. " > " .. tinyPlan.height)
 print("")
 if fails == 0 then print("ALL PASS") else print(fails .. " FAILURE(S)") end
 os.exit(fails == 0 and 0 or 1)

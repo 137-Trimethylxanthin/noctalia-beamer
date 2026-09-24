@@ -16,6 +16,7 @@
 -- result read as one continuous line across the full width.
 
 local model = require("./model.luau")
+local date = require("./date.luau")
 
 local M = {}
 
@@ -45,14 +46,20 @@ local function assignLanes(events)
 end
 
 -- Turns one lane's events into a vertical run of gaps and event boxes.
+-- Gaps are measured to where the event belongs on the time grid, from where
+-- the lane has actually got to: a box stretched to its minimum height takes
+-- its extra pixels out of the next gap instead of pushing the rest of the
+-- lane down, so every lane stays aligned with the hour gutter.
 local function buildItems(lane, viewStart: number, pxPerMin: number, totalH: number)
   local items = {}
-  local cursor = viewStart
+  local y = 0
 
   for _, ev in ipairs(lane.events) do
-    local gap = (ev._s - cursor) / 60 * pxPerMin
+    local target = (ev._s - viewStart) / 60 * pxPerMin
+    local gap = target - y
     if gap > 0.5 then
       table.insert(items, { kind = "gap", h = gap })
+      y = target
     end
     local h = math.max((ev._e - ev._s) / 60 * pxPerMin, 6)
     table.insert(items, {
@@ -62,10 +69,10 @@ local function buildItems(lane, viewStart: number, pxPerMin: number, totalH: num
       clippedTop = ev._s > ev.startUnix,
       clippedBottom = ev._e < ev.endUnix,
     })
-    cursor = ev._e
+    y += h
   end
 
-  local tail = totalH - (cursor - viewStart) / 60 * pxPerMin
+  local tail = totalH - y
   if tail > 0.5 then
     table.insert(items, { kind = "gap", h = tail })
   end
@@ -124,9 +131,12 @@ function M.planDay(events, opts)
   local hourTo = math.clamp(opts.hourTo or 24, hourFrom + 1, 24)
   local pxPerMin = math.clamp(opts.pxPerMinute or 1.2, 0.2, 8)
 
-  local viewStart = opts.dayTs + hourFrom * 3600
-  local viewEnd = opts.dayTs + hourTo * 3600
-  local totalH = (hourTo - hourFrom) * 60 * pxPerMin
+  -- Wall-clock hours of that day, so a DST day is 23 or 25 hours long and
+  -- 09:00 is still drawn where 09:00 is.
+  local day = os.date("*t", opts.dayTs)
+  local viewStart = date.mktime({ year = day.year, month = day.month, day = day.day, hour = hourFrom })
+  local viewEnd = date.mktime({ year = day.year, month = day.month, day = day.day, hour = hourTo })
+  local totalH = (viewEnd - viewStart) / 60 * pxPerMin
 
   -- Clamp every event to the visible window, keeping the real bounds so the
   -- renderer can flatten the corner it cut.

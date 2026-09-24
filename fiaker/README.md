@@ -55,8 +55,13 @@ Then set the plugin's **vdir path** to the same folder.
 - **No RRULE expansion.** A recurring event shows only its first instance, and the count of
   skipped repeats is logged. Writing an iCalendar recurrence engine in Luau is not worth it —
   `khal` already does it, and so does Noctalia itself.
-- **`TZID` is read as local wall-clock time.** Correct for your own calendars in your own
-  timezone; wrong for an event pinned to another zone.
+- **`TZID` is read as local wall-clock time**, except UTC and GMT. Correct for your own
+  calendars in your own timezone; wrong for an event pinned to another zone.
+
+What it does handle: all-day events (on their own day, not spilling into the next), events
+with `DURATION` instead of `DTEND`, cancelled events (left out), reminders (`VALARM`) inside an
+event, quoted parameters such as Exchange's `ALTREP="…"`, and events outside the ±window days
+(left out, so a years-deep vdirsyncer mirror stays cheap).
 
 ### The native path (needs a core patch)
 
@@ -139,7 +144,8 @@ Editing any `.luau` file hot-reloads its entry.
 
 ## Requirements
 
-- Noctalia **5.1.0+** (`plugin_api = 23`; 5.1.0 supports 3–30)
+- Noctalia **5.1.0+** (`plugin_api = 23`), on any compositor: Fiaker uses nothing but
+  Noctalia's own widgets and files, no compositor IPC
 - `vdirsyncer` for the vdir backend
 - `lua5.4` and [`uv`](https://docs.astral.sh/uv/) to run the tests
 

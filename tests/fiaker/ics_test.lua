@@ -55,6 +55,43 @@ check("missing DTEND gets 30min", by["evt-6"].endUnix - by["evt-6"].startUnix ==
 check("empty input is safe", (function() local e,r = vdir.parseIcs("", "x") return #e==0 and r==0 end)())
 check("garbage input is safe", (function() local e,r = vdir.parseIcs("BEGIN:VEVENT\r\nnonsense\r\n", "x") return #e==0 end)())
 
+print("== audit regressions ==")
+local model = require("lib.model")
+local date = require("lib.date")
+local day21 = date.mktime({ year = 2026, month = 9, day = 21, hour = 12 })
+local day22 = date.mktime({ year = 2026, month = 9, day = 22, hour = 12 })
+local allDay = by["evt-3"]
+check("all-day starts at midnight", os.date("%H:%M", allDay.startUnix) == "00:00", os.date("%H:%M", allDay.startUnix))
+local _, on21 = model.onDay({ allDay }, date.startOfDay(day21))
+local _, on22 = model.onDay({ allDay }, date.startOfDay(day22))
+check("all-day is on its own day", #on21 == 1, #on21)
+check("and not on the next one", #on22 == 0, #on22)
+local dots = model.countsByDay({ allDay })
+check("one dot, not two", dots["2026-09-21"] == 1 and dots["2026-09-22"] == nil)
+
+local function one(lines)
+  local e = vdir.parseIcs(table.concat(lines, "\r\n"), "x")
+  return e[1], #e
+end
+local dt = one({ "BEGIN:VEVENT", "UID:a", "SUMMARY:Timed", "DTSTART;VALUE=DATE-TIME:20260921T083000Z", "DTEND;VALUE=DATE-TIME:20260921T093000Z", "END:VEVENT" })
+check("VALUE=DATE-TIME is not all-day", dt and not dt.allDay and dt.endUnix - dt.startUnix == 3600)
+local alarm = one({ "BEGIN:VEVENT", "UID:real", "SUMMARY:Meeting", "DTSTART:20260921T083000Z", "DTEND:20260921T093000Z",
+  "BEGIN:VALARM", "UID:alarm-1", "ACTION:EMAIL", "SUMMARY:Alarm notification", "TRIGGER:-PT15M", "END:VALARM", "END:VEVENT" })
+check("a VALARM keeps its hands off the event", alarm and alarm.title == "Meeting" and alarm.id == "real", alarm and alarm.title)
+local altrep = one({ "BEGIN:VEVENT", "UID:b", "SUMMARY:Room", 'LOCATION;ALTREP="http://x.org/r":Room 1', "DTSTART:20260921T083000Z", "END:VEVENT" })
+check("a colon inside a quoted parameter", altrep and altrep.location == "Room 1", altrep and altrep.location)
+local dur = one({ "BEGIN:VEVENT", "UID:c", "SUMMARY:Long", "DTSTART:20260921T083000Z", "DURATION:PT1H30M", "END:VEVENT" })
+check("DURATION instead of DTEND", dur and dur.endUnix - dur.startUnix == 5400)
+local _, n = one({ "BEGIN:VEVENT", "UID:d", "SUMMARY:Off", "STATUS:CANCELLED", "DTSTART:20260921T083000Z", "END:VEVENT" })
+check("cancelled events are left out", n == 0, n)
+local utc = one({ "BEGIN:VEVENT", "UID:e", "SUMMARY:U", "DTSTART;TZID=UTC:20260921T083000", "DTEND;TZID=UTC:20260921T093000", "END:VEVENT" })
+local z = one({ "BEGIN:VEVENT", "UID:f", "SUMMARY:Z", "DTSTART:20260921T083000Z", "END:VEVENT" })
+check("TZID=UTC is UTC", utc and z and utc.startUnix == z.startUnix)
+local esc = one({ "BEGIN:VEVENT", "UID:g", "SUMMARY:a\\\\nb\\nc", "DTSTART:20260921T083000Z", "END:VEVENT" })
+check("an escaped backslash before n stays one", esc and esc.title == "a\\nb\nc", esc and esc.title)
+local ws = one({ "BEGIN:VEVENT ", "UID:h", "SUMMARY:Spaces", "DTSTART:20260921T083000Z", "end:vevent" })
+check("markers tolerate trailing space and case", ws ~= nil)
+
 print("")
 if fails == 0 then print("ALL PASS") else print(fails.." FAILURE(S)") end
 os.exit(fails == 0 and 0 or 1)

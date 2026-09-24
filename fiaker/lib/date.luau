@@ -29,8 +29,9 @@ function M.startOfDay(ts: number): number
   return M.mktime(t)
 end
 
+-- The next midnight, which is 23 or 25 hours away on a DST day.
 function M.endOfDay(ts: number): number
-  return M.startOfDay(ts) + 86400
+  return M.addDays(M.startOfDay(ts), 1)
 end
 
 -- Shifts by whole days across DST without drifting.
