@@ -140,7 +140,7 @@ local function resetSaved(name)
     return
   end
   resetting[name] = true
-  noctalia.runAsync({ "sh", script, args[1], args[2] }, function(result)
+  noctalia.runAsync({ "sh", script, "name:" .. args[1], "id:" .. args[2] }, function(result)
     resetting[name] = nil
     if result.exitCode == 0 then
       resetFailedAt[name] = nil
@@ -193,6 +193,9 @@ end
 
 local looking, again = false, false
 local lookStartedAt = 0
+-- Bumped by the watchdog, so a look it gave up on cannot land later and
+-- overwrite what the next one found.
+local lookGen = 0
 local look -- defined below; finishLook needs it first
 
 local function finishLook()
@@ -213,8 +216,12 @@ look = function()
   end
   looking = true
   lookStartedAt = noctalia.nowMs()
+  local gen = lookGen
   listJson("sink-inputs", function(sinks)
     listJson("source-outputs", function(sources)
+      if gen ~= lookGen then
+        return
+      end
       if sinks == nil or sources == nil then
         return finishLook()
       end
@@ -249,6 +256,9 @@ look = function()
       lastStatus = { quiet = plan.quiet, busy = plan.busy }
       publish()
       setMutes(plan.mute, plan.unmute, function()
+        if gen ~= lookGen then
+          return
+        end
         for _, name in ipairs(plan.reset) do
           resetSaved(name)
         end
@@ -333,11 +343,14 @@ local function onStreamLine(line, gen)
     end
   end
   -- A new playback stream may be a ping; a new or closed recording stream
-  -- is a call starting or ending.
+  -- is a call starting or ending; a changed one, while Goschen owns apps, may
+  -- be WirePlumber putting a remembered mute on it.
   if (facility == "sink-input" and kind == "new") or facility == "source-output" then
     if needed() then
       look()
     end
+  elseif facility == "sink-input" and kind == "change" and next(owned) ~= nil then
+    look()
   end
 end
 
@@ -351,9 +364,9 @@ local function subscribe()
 end
 
 -- Streams already open at startup count as old for the age rule, since they
--- were playing before Goschen could see them start; ages kept over a reload
--- win, and a stream that is Goschen's doing is never old, or a reload during
--- Do Not Disturb would hand its pings back.
+-- were playing before Goschen could see them start. Ages kept over a reload
+-- win; a stream that is Goschen's doing starts its age afresh instead, or a
+-- reload during Do Not Disturb would hand its pings back at once.
 local function seedAges(sinks)
   local kept = noctalia.state.get("firstSeen")
   noctalia.state.set("firstSeen", nil)
@@ -400,6 +413,7 @@ function update()
   local now = noctalia.nowMs()
   if looking and now - lookStartedAt > 15000 then
     noctalia.log("goschen: a look never finished; starting over")
+    lookGen = lookGen + 1
     looking, again = false, false
   end
   if not subscribed and now >= subscribeAfter then
@@ -456,7 +470,7 @@ function onExit(_signal, reason)
     for name in pairs(entry.names or {}) do
       local args = quiet.restoreArgs(name)
       if script ~= nil and args ~= nil then
-        noctalia.runAsync({ "sh", script, args[1], args[2] })
+        noctalia.runAsync({ "sh", script, "name:" .. args[1], "id:" .. args[2] })
       end
     end
   end

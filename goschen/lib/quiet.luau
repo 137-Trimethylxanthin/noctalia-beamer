@@ -84,8 +84,11 @@ function M.restoreName(stream)
   if type(role) == "string" and SHARED_ROLES[string.lower(role)] then
     return nil
   end
+  -- An id that is there but cannot be passed on would make the reset clear
+  -- the name's key instead of the id's, so such a stream is left alone.
+  local rawId = props["application.id"]
   local name, id = prop(props, "application.name"), prop(props, "application.id")
-  if name == "" and id == "" then
+  if (rawId ~= nil and rawId ~= "" and id == "") or (name == "" and id == "") then
     return nil
   end
   return name .. "|" .. id
@@ -198,6 +201,13 @@ function M.plan(input)
   local firstSeen = input.firstSeen or {}
   local busyAfter = input.busyAfterMs or 0
 
+  -- Old enough that WirePlumber has had its chance to put a remembered mute
+  -- on it; a stream of unknown age is taken as settled.
+  local function settled(stream)
+    local since = firstSeen[stream.index]
+    return since == nil or now - since >= (input.settleMs or 2000)
+  end
+
   local function busy(key)
     if input.respectCalls ~= false and recording[key] then
       return true
@@ -230,15 +240,20 @@ function M.plan(input)
 
     -- A stream Goschen has not looked at before that arrives muted under a
     -- name it muted is PipeWire replaying Goschen's mute: its doing too.
+    -- WirePlumber replays the mute a moment after the stream appears, so one
+    -- that is still new and unmuted is not settled yet: the next look sees
+    -- it again.
     if entry ~= nil then
       for _, stream in ipairs(group) do
         local index = tostring(stream.index)
         live[index] = true
         if not entry.seen[index] then
-          entry.seen[index] = true
           local name = M.restoreName(stream)
           if stream.mute and name ~= nil and entry.names[name] then
             entry.streams[index] = true
+            entry.seen[index] = true
+          elseif stream.mute or settled(stream) then
+            entry.seen[index] = true
           end
         end
       end
@@ -267,12 +282,15 @@ function M.plan(input)
           entry.names[name] = true
           entry.streams[index] = true
           entry.seen[index] = true
-        elseif entry ~= nil then
-          entry.seen[index] = true
         end
       end
       if entry ~= nil then
         entry.returning = false
+        -- Everything in the group has been looked at now, a mute of the
+        -- user's own that came before the first stream Goschen muted too.
+        for _, stream in ipairs(group) do
+          entry.seen[tostring(stream.index)] = true
+        end
       end
     elseif entry ~= nil then
       for _, stream in ipairs(group) do

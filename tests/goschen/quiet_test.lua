@@ -78,6 +78,25 @@ check("reported quiet", has(p.quiet, "vesktop"))
 p = quiet.plan({ dnd = true, apps = apps, sinks = { stream(10, "vesktop", "vesktop", true) }, sources = {}, owned = {} })
 check("already muted by the user: not claimed", p.owned.vesktop == nil and #p.mute == 0)
 
+local mixed = quiet.plan({ dnd = true, apps = apps, sinks = { stream(5, "vesktop", "vesktop", true), stream(6, "vesktop", "vesktop") },
+  sources = {}, owned = {} }).owned
+local mixed2 = quiet.plan({ dnd = true, apps = apps, sinks = { stream(5, "vesktop", "vesktop", true), stream(6, "vesktop", "vesktop", true) },
+  sources = {}, owned = mixed }).owned
+p = quiet.plan({ dnd = false, apps = apps, sinks = { stream(5, "vesktop", "vesktop", true), stream(6, "vesktop", "vesktop", true) },
+  sources = {}, owned = mixed2 })
+check("a mute of the user's own listed before Goschen's stays", not has(p.unmute, 5) and has(p.unmute, 6), list(p.unmute))
+
+-- a late replay: first seen unmuted and young, muted by WirePlumber a moment later
+local ownedLate = quiet.plan({ dnd = true, apps = apps, sinks = { stream(80, "vesktop", "vesktop") }, sources = {}, owned = {} }).owned
+local mic2 = { stream(9, "vesktop", "vesktop") }
+local seenYoung = { [81] = 1000 }
+local l1 = quiet.plan({ dnd = true, apps = apps, sources = mic2, owned = ownedLate, now = 1500, firstSeen = seenYoung,
+  sinks = { stream(81, "vesktop", "vesktop") } })
+local l2 = quiet.plan({ dnd = true, apps = apps, sources = mic2, owned = l1.owned, now = 1800, firstSeen = seenYoung,
+  sinks = { stream(81, "vesktop", "vesktop", true) } })
+check("a mute WirePlumber replays a moment late is still Goschen's", has(l2.unmute, 81), list(l2.unmute))
+check("an id that cannot be passed on blocks the mute", quiet.restoreName(stream(1, "x", "T", false, { ["application.id"] = "a|b" })) == nil)
+
 p = quiet.plan({ dnd = true, apps = apps, sinks = { stream(13, "x", "Telegram", false, { ["media.role"] = "event" }) },
   sources = {}, owned = {} })
 check("a shared-role stream is left alone", #p.mute == 0 and p.owned.telegram == nil)

@@ -1,6 +1,7 @@
 #!/bin/sh
-# Clears a remembered mute:  sh unmute.sh <application.name> <application.id>
-# (either may be empty, not both). Exits 0 only once the mute is gone.
+# Clears a remembered mute:  sh unmute.sh name:<application.name> id:<application.id>
+# (either value may be empty, not both). The prefixes keep an empty value an
+# argument of its own. Exits 0 only once the mute is gone.
 #
 # WirePlumber remembers a mute per app, keyed by application.id if the stream
 # has one and application.name otherwise, and puts it on the app's next
@@ -11,7 +12,8 @@
 #
 # Self-contained on purpose: it also runs from onExit, when nothing is left to
 # watch the stream appear.
-name=$1 id=$2
+case $1 in name:*) name=${1#name:} ;; *) exit 2 ;; esac
+case $2 in id:*) id=${2#id:} ;; *) exit 2 ;; esac
 [ -n "$name$id" ] || exit 2
 
 # pactl's text output is translated; the parsing below needs the English one.
