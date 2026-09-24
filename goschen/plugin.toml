@@ -1,0 +1,48 @@
+# Goschen — Viennese for "gob", as in "hoit die Goschen": true Do Not Disturb.
+#
+#   watch     [[service]]   follows Noctalia's Do Not Disturb, mutes the listed
+#                           apps' own pings while it is on (lib/quiet.luau)
+#   toggle    [[shortcut]]  control-center tile: Do Not Disturb on / off
+
+id           = "137-trimethylxanthin/goschen"
+name         = "Goschen"
+version      = "0.1.0"
+plugin_api   = 24   # argv form of runAsync; also brings module-require and service-lifecycle
+author       = "137-trimethylxanthin"
+license      = "MIT"
+icon         = "bell-off"
+deprecated   = false
+description  = "Do Not Disturb that really means it: silences the pings apps like Discord play themselves, and leaves calls and your music alone."
+tags         = ["shortcut", "service", "notifications", "audio"]
+dependencies = ["pactl", "pacat", "noctalia"]
+
+[[setting]]
+key             = "apps"
+type            = "string"
+label_key       = "settings.apps.label"
+description_key = "settings.apps.description"
+default         = "vesktop, discord, equibop, legcord, webcord, telegram-desktop, signal-desktop, slack, element-desktop"
+
+[[setting]]
+key             = "respect_calls"
+type            = "bool"
+label_key       = "settings.respect_calls.label"
+description_key = "settings.respect_calls.description"
+default         = true
+
+[[setting]]
+key             = "busy_after"
+type            = "int"
+label_key       = "settings.busy_after.label"
+description_key = "settings.busy_after.description"
+default         = 0
+min             = 0
+max             = 600
+
+[[service]]
+id    = "watch"
+entry = "watch.luau"
+
+[[shortcut]]
+id    = "toggle"
+entry = "shortcut.luau"

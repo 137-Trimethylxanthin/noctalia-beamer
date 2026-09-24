@@ -1,0 +1,18 @@
+{
+  "title": "Goschen",
+  "missing": "Missing on this system: {tools}",
+  "settings": {
+    "apps": {
+      "label": "Apps to silence",
+      "description": "Process or app names, separated by commas. While Do Not Disturb is on, their own sounds are muted; they get them back when it ends"
+    },
+    "respect_calls": {
+      "label": "Leave calls alone",
+      "description": "An app that is using the microphone is in a call, so it keeps its sound. Its pings are heard during the call too"
+    },
+    "busy_after": {
+      "label": "Leave long playback alone",
+      "description": "Seconds after which an app that keeps playing (a video, a stage channel) gets its sound back. 0 turns this off"
+    }
+  }
+}

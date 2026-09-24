@@ -1,0 +1,18 @@
+{
+  "title": "Goschen",
+  "missing": "Fehlt auf diesem System: {tools}",
+  "settings": {
+    "apps": {
+      "label": "Stummzuschaltende Apps",
+      "description": "Prozess- oder App-Namen, durch Kommas getrennt. Solange „Nicht stören“ an ist, sind ihre eigenen Töne stumm; danach bekommen sie sie zurück"
+    },
+    "respect_calls": {
+      "label": "Anrufe in Ruhe lassen",
+      "description": "Eine App, die das Mikrofon benutzt, ist in einem Anruf und behält ihren Ton. Ihre Benachrichtigungstöne sind dann auch zu hören"
+    },
+    "busy_after": {
+      "label": "Lange Wiedergabe in Ruhe lassen",
+      "description": "Sekunden, nach denen eine App, die länger abspielt (ein Video, ein Stage-Kanal), ihren Ton zurückbekommt. 0 schaltet das aus"
+    }
+  }
+}
