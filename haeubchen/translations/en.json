@@ -1,0 +1,71 @@
+{
+  "title": "Häubchen",
+  "following": "Watching {title}",
+  "opening": "Opening {url}",
+  "nothing": "Not following any window. Pick one with /pip",
+  "no-player": "Player '{player}' is not installed. Set the player command in Häubchen's settings",
+  "row": {
+    "hide": {
+      "title": "Hide picture-in-picture"
+    },
+    "show": {
+      "title": "Show picture-in-picture"
+    },
+    "back": {
+      "title": "Go back to the stream"
+    },
+    "stop": {
+      "title": "Stop following"
+    },
+    "play": {
+      "title": "Open in the player"
+    },
+    "follow": {
+      "subtitle": "Follow this window · {class} on workspace {workspace}"
+    },
+    "empty": {
+      "title": "No windows to follow",
+      "subtitle": "Try /pip twitch <channel>, /pip yt <id> or a URL"
+    },
+    "auto": "auto · {title}",
+    "reset": {
+      "title": "Reset size and position",
+      "subtitle": "Back to the corner and size from the settings"
+    }
+  },
+  "settings": {
+    "auto_follow": {
+      "label": "Auto-follow streams",
+      "description": "Follow a window by itself when its title shows Twitch, YouTube or Kick, or when it is the player Häubchen opened. Lets go when the tab moves off the stream, and never grabs a window you stopped following"
+    },
+    "corner": {
+      "label": "Corner",
+      "bottom_right": "Bottom right",
+      "bottom_left": "Bottom left",
+      "top_right": "Top right",
+      "top_left": "Top left"
+    },
+    "size": {
+      "label": "Size",
+      "description": "Width of the corner player as a share of the monitor width; height follows at 16:9"
+    },
+    "margin": {
+      "label": "Margin",
+      "description": "Gap to the screen edge and the bar, in logical pixels"
+    },
+    "player_command": {
+      "label": "Player command",
+      "description": "Run for /pip twitch, yt, kick and URLs. {url} is replaced by the stream as one argument. mpv needs yt-dlp for Twitch and YouTube"
+    },
+    "player_class": {
+      "label": "Player window class",
+      "description": "The class the player's window opens with, so Häubchen can follow it. Must match the command's app id"
+    }
+  },
+  "following-auto": "Stream spotted, watching along: {title}",
+  "missing": "Missing on this system: {tools}",
+  "unsupported": {
+    "title": "Compositor not supported",
+    "subtitle": "Häubchen works on Hyprland, sway and niri"
+  }
+}

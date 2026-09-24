@@ -1,0 +1,71 @@
+{
+  "title": "Häubchen",
+  "following": "Schaut mit: {title}",
+  "opening": "Öffne {url}",
+  "nothing": "Kein Fenster ausgewählt. Mit /pip eines aussuchen",
+  "no-player": "Player „{player}“ ist nicht installiert. Den Player-Befehl in den Häubchen-Einstellungen setzen",
+  "row": {
+    "hide": {
+      "title": "Bild-im-Bild ausblenden"
+    },
+    "show": {
+      "title": "Bild-im-Bild einblenden"
+    },
+    "back": {
+      "title": "Zurück zum Stream"
+    },
+    "stop": {
+      "title": "Nicht mehr folgen"
+    },
+    "play": {
+      "title": "Im Player öffnen"
+    },
+    "follow": {
+      "subtitle": "Diesem Fenster folgen · {class} auf Arbeitsfläche {workspace}"
+    },
+    "empty": {
+      "title": "Keine Fenster zum Folgen",
+      "subtitle": "/pip twitch <Kanal>, /pip yt <ID> oder eine URL probieren"
+    },
+    "auto": "automatisch · {title}",
+    "reset": {
+      "title": "Größe und Position zurücksetzen",
+      "subtitle": "Zurück zu Ecke und Größe aus den Einstellungen"
+    }
+  },
+  "settings": {
+    "auto_follow": {
+      "label": "Streams automatisch folgen",
+      "description": "Einem Fenster von selbst folgen, wenn der Titel Twitch, YouTube oder Kick zeigt oder es der Häubchen-Player ist. Lässt los, sobald der Tab den Stream verlässt, und greift nie ein Fenster, dem du nicht mehr folgen wolltest"
+    },
+    "corner": {
+      "label": "Ecke",
+      "bottom_right": "Unten rechts",
+      "bottom_left": "Unten links",
+      "top_right": "Oben rechts",
+      "top_left": "Oben links"
+    },
+    "size": {
+      "label": "Größe",
+      "description": "Breite des Eck-Players als Anteil der Monitorbreite; die Höhe folgt im 16:9-Format"
+    },
+    "margin": {
+      "label": "Abstand",
+      "description": "Abstand zum Bildschirmrand und zur Leiste, in logischen Pixeln"
+    },
+    "player_command": {
+      "label": "Player-Befehl",
+      "description": "Wird für /pip twitch, yt, kick und URLs ausgeführt. {url} wird als ein Argument durch den Stream ersetzt. mpv braucht yt-dlp für Twitch und YouTube"
+    },
+    "player_class": {
+      "label": "Fensterklasse des Players",
+      "description": "Die Klasse, mit der das Player-Fenster aufgeht, damit Häubchen ihm folgen kann. Muss zur App-ID im Befehl passen"
+    }
+  },
+  "following-auto": "Stream entdeckt, schaut mit: {title}",
+  "missing": "Fehlt auf diesem System: {tools}",
+  "unsupported": {
+    "title": "Compositor nicht unterstützt",
+    "subtitle": "Häubchen läuft unter Hyprland, sway und niri"
+  }
+}

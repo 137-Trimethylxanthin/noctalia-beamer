@@ -1,0 +1,93 @@
+# Häubchen — the cap of cream on top of the coffee: picture-in-picture for any window.
+#
+#   watch     [[service]]            follows one window, moves it into the corner
+#                                    (Hyprland, sway or niri; see lib/backend.luau)
+#   pip       [[launcher_provider]]  /pip: pick a window, or open a stream
+#   toggle    [[shortcut]]           control-center tile: hide / show
+
+id           = "137-trimethylxanthin/haeubchen"
+name         = "Häubchen"
+version      = "0.1.0"
+plugin_api   = 24   # argv form of runAsync; also brings module-require and service-lifecycle
+author       = "137-trimethylxanthin"
+license      = "MIT"
+icon         = "picture-in-picture"
+deprecated   = false
+description  = "Picture-in-picture for any window or stream: it follows you into a corner when you leave its workspace."
+tags         = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "niri"]
+# Per compositor, so checked at runtime: hyprctl + socat, swaymsg, or niri + socat.
+dependencies = []
+
+[[setting]]
+key             = "auto_follow"
+type            = "bool"
+label_key       = "settings.auto_follow.label"
+description_key = "settings.auto_follow.description"
+default         = false
+
+[[setting]]
+key       = "corner"
+type      = "select"
+label_key = "settings.corner.label"
+default   = "bottom_right"
+  [[setting.options]]
+  value     = "bottom_right"
+  label_key = "settings.corner.bottom_right"
+  [[setting.options]]
+  value     = "bottom_left"
+  label_key = "settings.corner.bottom_left"
+  [[setting.options]]
+  value     = "top_right"
+  label_key = "settings.corner.top_right"
+  [[setting.options]]
+  value     = "top_left"
+  label_key = "settings.corner.top_left"
+
+[[setting]]
+key             = "size"
+type            = "double"
+label_key       = "settings.size.label"
+description_key = "settings.size.description"
+default         = 0.25
+min             = 0.1
+max             = 0.6
+
+[[setting]]
+key             = "margin"
+type            = "int"
+label_key       = "settings.margin.label"
+description_key = "settings.margin.description"
+default         = 16
+min             = 0
+max             = 200
+
+[[setting]]
+key             = "player_command"
+type            = "string"
+label_key       = "settings.player_command.label"
+description_key = "settings.player_command.description"
+default         = "mpv --force-window=immediate --wayland-app-id=haeubchen {url}"
+
+[[setting]]
+key             = "player_class"
+type            = "string"
+label_key       = "settings.player_class.label"
+description_key = "settings.player_class.description"
+default         = "haeubchen"
+advanced        = true
+
+[[service]]
+id    = "watch"
+entry = "watch.luau"
+
+[[launcher_provider]]
+id                       = "pip"
+entry                    = "provider.luau"
+prefix                   = "pip"
+glyph                    = "picture-in-picture"
+include_in_global_search = false
+debounce_ms              = 0
+
+[[shortcut]]
+id    = "toggle"
+entry = "shortcut.luau"

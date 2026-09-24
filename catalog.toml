@@ -27,8 +27,8 @@ tags = ["launcher", "shortcut", "service", "hardware", "hyprland"]
 [[plugin]]
 id = "137-trimethylxanthin/fiaker"
 name = "Fiaker"
-version = "0.1.0"
-updated_at = 1789990736
+version = "0.1.1"
+updated_at = 1790008911
 added_at = 1790008911
 author = "137-trimethylxanthin"
 license = "MIT"
@@ -37,3 +37,17 @@ description = "A calendar that separates the month grid from the day timeline, w
 deprecated = false
 plugin_api = 23
 tags = ["calendar", "events", "agenda", "timeline"]
+
+[[plugin]]
+id = "137-trimethylxanthin/haeubchen"
+name = "Häubchen"
+version = "0.1.0"
+updated_at = 1790245707
+added_at = 1790245707
+author = "137-trimethylxanthin"
+license = "MIT"
+icon = "picture-in-picture"
+description = "Picture-in-picture for any window or stream: it follows you into a corner when you leave its workspace."
+deprecated = false
+plugin_api = 24
+tags = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "niri"]
