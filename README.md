@@ -5,7 +5,8 @@ Add it once and every plugin in here shows up in the Noctalia plugin store like
 any other, updates included: a Win+P **display switcher**, a
 **calendar** with month and day widgets, **picture-in-picture** for any
 window or stream, a **Do Not Disturb** that actually keeps Discord quiet, and a
-**spotlight** that puts a soft white glow around your cursor.
+**cursor light** that flashes on your cursor when a message comes in, dims
+everything else while you shake the mouse, or glows for as long as you like.
 
 | [Vitrine](vitrine/README.md) | [Fiaker](fiaker/README.md) | [Häubchen](haeubchen/README.md) |
 | --- | --- | --- |
@@ -15,11 +16,11 @@ window or stream, a **Do Not Disturb** that actually keeps Discord quiet, and a
 
 | Plugin | | What it does |
 | --- | --- | --- |
-| **[Vitrine](vitrine/README.md)** | `1.0.0` | A Win+P display switcher: extend, duplicate, external only and laptop only — from the launcher, a control-center tile, or one IPC call you can bind to your display key. Duplicate needs Hyprland. |
-| **[Fiaker](fiaker/README.md)** | `0.1.2` | A calendar that keeps the month grid and the day timeline as separate, synchronized widgets, with a live now-line. |
-| **[Häubchen](haeubchen/README.md)** | `0.2.0` | Picture-in-picture for any window or stream: pick it with `/pip` or one key, or let it spot streams itself, and it follows you into a corner whenever you leave its workspace. Hyprland, sway, Scroll, niri and MangoWC. |
-| **[Goschen](goschen/README.md)** | `0.1.0` | Do Not Disturb that really means it: while it is on, the pings Discord, Telegram and friends play themselves are muted too, and the call you are in and your music keep playing. PipeWire. |
-| **[Kerzenlicht](kerzenlicht/README.md)** | `0.1.0` | A spotlight for your cursor: a soft white glow follows it across every monitor, click-through, for screen shares, recordings and talks. Any compositor with cursor sessions. |
+| **[Vitrine](vitrine/README.md)** | `1.0.1` | A Win+P display switcher: extend, duplicate, external only and laptop only — from the launcher, a control-center tile, or one IPC call you can bind to your display key. Duplicate needs Hyprland. |
+| **[Fiaker](fiaker/README.md)** | `0.2.0` | A calendar that keeps the month grid and the day timeline as separate, synchronized widgets, with a live now-line. Repeating events, exceptions and moved instances included. |
+| **[Häubchen](haeubchen/README.md)** | `0.2.1` | Picture-in-picture for any window or stream: pick it with `/pip` or one key, or let it spot streams itself, and it follows you into a corner whenever you leave its workspace. Hyprland, sway, Scroll, niri and MangoWC. |
+| **[Goschen](goschen/README.md)** | `0.1.1` | Do Not Disturb that really means it: while it is on, the pings Discord, Telegram and friends play themselves are muted too, and the call you are in and your music keep playing. PipeWire. |
+| **[Kerzenlicht](kerzenlicht/README.md)** | `0.2.0` | Find your cursor: a message or a key lights it for a moment, shaking the mouse dims everything else, and a soft white glow can follow it for screen shares and talks. Click-through, every monitor. Any compositor with cursor sessions. |
 
 ## Install
 
@@ -108,7 +109,8 @@ Following a window you already have open does not.
 in a call keeps its pings along with the call.
 
 **Kerzenlicht** needs `uv` (it fetches pywayland on first use), `pkill` and
-`pgrep`, and a compositor with `ext-image-copy-capture-v1` cursor sessions.
+`pgrep`, and a compositor with `ext-image-copy-capture-v1` cursor sessions;
+`busctl` (systemd) for flashing on messages.
 
 Each plugin's own README has the full documentation — every widget, setting and
 caveat.

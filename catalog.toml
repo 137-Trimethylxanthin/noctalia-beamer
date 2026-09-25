@@ -13,7 +13,7 @@
 [[plugin]]
 id = "137-trimethylxanthin/fiaker"
 name = "Fiaker"
-version = "0.1.2"
+version = "0.2.0"
 updated_at = 1790271924
 added_at = 1790008911
 author = "137-trimethylxanthin"
@@ -27,7 +27,7 @@ tags = ["calendar", "events", "agenda", "timeline"]
 [[plugin]]
 id = "137-trimethylxanthin/haeubchen"
 name = "Häubchen"
-version = "0.2.0"
+version = "0.2.1"
 updated_at = 1790271925
 added_at = 1790250020
 author = "137-trimethylxanthin"
@@ -41,8 +41,8 @@ tags = ["launcher", "shortcut", "service", "media", "hyprland", "sway", "scroll"
 [[plugin]]
 id = "137-trimethylxanthin/goschen"
 name = "Goschen"
-version = "0.1.0"
-updated_at = 1790263050
+version = "0.1.1"
+updated_at = 1790328467
 added_at = 1790263050
 author = "137-trimethylxanthin"
 license = "MIT"
@@ -55,21 +55,21 @@ tags = ["shortcut", "service", "notifications", "audio"]
 [[plugin]]
 id = "137-trimethylxanthin/kerzenlicht"
 name = "Kerzenlicht"
-version = "0.1.0"
-updated_at = 1790263070
+version = "0.2.0"
+updated_at = 1790328781
 added_at = 1790263070
 author = "137-trimethylxanthin"
 license = "MIT"
 icon = "bulb"
-description = "A spotlight for your cursor: a soft white glow follows it across every monitor, click-through. Any compositor with layer-shell and cursor sessions."
+description = "Find your cursor: a message or a key lights it up for a moment, shaking the mouse dims everything else, and a soft white glow can follow it for good. Click-through, on every monitor; any compositor with layer-shell and cursor sessions."
 deprecated = false
 plugin_api = 24
-tags = ["shortcut", "service", "focus", "fun"]
+tags = ["shortcut", "service", "focus", "notifications", "accessibility"]
 
 [[plugin]]
 id = "137-trimethylxanthin/vitrine"
 name = "Vitrine"
-version = "1.0.0"
+version = "1.0.1"
 updated_at = 1790271919
 added_at = 1790271919
 author = "137-trimethylxanthin"
