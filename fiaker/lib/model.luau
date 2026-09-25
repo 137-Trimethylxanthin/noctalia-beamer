@@ -45,11 +45,20 @@ function M.overlaps(ev, from: number, to: number): boolean
   return ev.endUnix > from and ev.startUnix < to
 end
 
+-- A reminder-style event with no length (DTEND = DTSTART) still happens at
+-- its start: for the day views it lasts five minutes, the same as the
+-- timeline draws it, so it shows at 00:00 and at the first visible hour too.
+local function visibleOverlap(ev, from, to)
+  local stop = ev.endUnix
+  if stop <= ev.startUnix then stop = ev.startUnix + 300 end
+  return stop > from and ev.startUnix < to
+end
+
 function M.onDay(events, dayTs: number)
   local from, to = date.startOfDay(dayTs), date.endOfDay(dayTs)
   local timed, allDay = {}, {}
   for _, ev in ipairs(events) do
-    if M.overlaps(ev, from, to) then
+    if visibleOverlap(ev, from, to) then
       if ev.allDay then table.insert(allDay, ev) else table.insert(timed, ev) end
     end
   end

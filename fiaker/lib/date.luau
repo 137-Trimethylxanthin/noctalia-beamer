@@ -17,10 +17,73 @@ local M = {}
 -- from local time; it is zero on Lua 5.4. The offset is measured a second
 -- time at the corrected instant, so a DST change between the two readings
 -- does not leave it an hour out.
-function M.mktime(t): number
+--
+-- Of the two candidates, the one that reads back as the asked-for wall
+-- clock wins. A wall clock that does not exist (the hour a DST change skips,
+-- which in Santiago or Havana is midnight itself) has no such candidate; the
+-- later one is taken, which is the first instant after the gap, on the same
+-- day, where the earlier one would be an hour before, on the day before.
+--
+-- Returns nil for a time Luau cannot represent (before 1970).
+function M.mktime(t)
   local guess = os.time(t)
-  local first = guess - (os.time(os.date("*t", guess)) - guess)
-  return guess - (os.time(os.date("*t", first)) - first)
+  if guess == nil then return nil end
+  local function wall(x)
+    local fields = os.date("*t", x)
+    if fields == nil then return nil end
+    return os.time(fields)
+  end
+  local w1 = wall(guess)
+  if w1 == nil then return nil end
+  local first = guess - (w1 - guess)
+  local w2 = wall(first)
+  if w2 == nil then return nil end
+  local second = guess - (w2 - first)
+  local a, b = second, first
+  if wall(a) == guess then return a end
+  if wall(b) == guess then return b end
+  return math.max(a, b)
+end
+
+-- ── Civil dates without os ──────────────────────────────────────────────────
+-- Day numbers (days since 1970-01-01) from pure integer arithmetic (Howard
+-- Hinnant's algorithm), so any year works: os.time refuses dates before 1970
+-- under Luau, and a birthday from 1945 still has to repeat into this year.
+
+function M.dayNumber(y, m, d)
+  if m <= 2 then y = y - 1 end
+  local era = math.floor(y / 400)
+  local yoe = y - era * 400
+  local mp = (m + 9) % 12
+  local doy = math.floor((153 * mp + 2) / 5) + d - 1
+  local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468
+end
+
+function M.civil(n)
+  n = n + 719468
+  local era = math.floor(n / 146097)
+  local doe = n - era * 146097
+  local yoe = math.floor((doe - math.floor(doe / 1460) + math.floor(doe / 36524) - math.floor(doe / 146096)) / 365)
+  local y = yoe + era * 400
+  local doy = doe - (365 * yoe + math.floor(yoe / 4) - math.floor(yoe / 100))
+  local mp = math.floor((5 * doy + 2) / 153)
+  local d = doy - math.floor((153 * mp + 2) / 5) + 1
+  local m = mp + 3
+  if m > 12 then m = m - 12 end
+  if m <= 2 then y = y + 1 end
+  return y, m, d
+end
+
+-- 0 = Sunday .. 6 = Saturday; 1970-01-01 was a Thursday.
+function M.weekday(n)
+  return (n + 4) % 7
+end
+
+function M.daysInMonth(y, m)
+  local nextY, nextM = y, m + 1
+  if nextM > 12 then nextY, nextM = y + 1, 1 end
+  return M.dayNumber(nextY, nextM, 1) - M.dayNumber(y, m, 1)
 end
 
 function M.startOfDay(ts: number): number

@@ -142,7 +142,9 @@ function M.planDay(events, opts)
   -- renderer can flatten the corner it cut.
   local visible = {}
   for _, ev in ipairs(events) do
-    if not ev.allDay and model.overlaps(ev, viewStart, viewEnd) then
+    local stop = ev.endUnix
+    if stop <= ev.startUnix then stop = ev.startUnix + 300 end -- see model.onDay
+    if not ev.allDay and stop > viewStart and ev.startUnix < viewEnd then
       local clone = table.clone(ev)
       clone._s = math.max(ev.startUnix, viewStart)
       clone._e = math.min(ev.endUnix, viewEnd)
@@ -172,9 +174,17 @@ function M.planDay(events, opts)
     end
   end
 
+  -- The gutter from the same wall clock: on the day the clocks go forward
+  -- the skipped hour has no row, and on the day they go back the repeated
+  -- one is two hours tall, so every label sits beside its hour.
   local hours = {}
   for h = hourFrom, hourTo - 1 do
-    table.insert(hours, { hour = h, h = 60 * pxPerMin })
+    local at = date.mktime({ year = day.year, month = day.month, day = day.day, hour = h })
+    local nextAt = date.mktime({ year = day.year, month = day.month, day = day.day, hour = h + 1 })
+    local minutes = (nextAt - at) / 60
+    if minutes > 0 then
+      table.insert(hours, { hour = h, at = at, h = minutes * pxPerMin })
+    end
   end
 
   return {

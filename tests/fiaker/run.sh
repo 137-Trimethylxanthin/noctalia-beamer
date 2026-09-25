@@ -16,16 +16,17 @@ OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
 mkdir -p "$OUT/lib"
 
-uv run --quiet transpile.py "$SRC"/lib/{date,model,layout,source_vdir}.luau >/dev/null
+uv run --quiet transpile.py "$SRC"/lib/{date,model,layout,recur,source_vdir}.luau >/dev/null
 # transpile.py writes next to itself; move into the sandbox and fix module paths
-for f in date model layout source_vdir; do
+for f in date model layout recur source_vdir; do
   mv "lib/$f.luau" "$OUT/lib/$f.lua"
 done
 rmdir lib 2>/dev/null || true
-sed -i 's|require("date")|require("lib.date")|; s|require("model")|require("lib.model")|' "$OUT"/lib/*.lua
+sed -i 's|require("date")|require("lib.date")|; s|require("model")|require("lib.model")|; s|require("recur")|require("lib.recur")|' "$OUT"/lib/*.lua
 
-cp logic_test.lua ics_test.lua luau_time_test.lua "$OUT/"
+cp logic_test.lua ics_test.lua luau_time_test.lua recur_test.lua "$OUT/"
 cd "$OUT"
 echo "--- logic ---"; TZ=Europe/Vienna lua5.4 logic_test.lua
 echo; echo "--- ics ---"; TZ=Europe/Vienna lua5.4 ics_test.lua
+echo; echo "--- recurrence ---"; TZ=Europe/Vienna lua5.4 recur_test.lua
 echo; echo "--- luau os.time ---"; TZ=Europe/Vienna lua5.4 luau_time_test.lua

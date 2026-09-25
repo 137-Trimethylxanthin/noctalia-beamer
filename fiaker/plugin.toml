@@ -11,7 +11,7 @@
 
 id           = "137-trimethylxanthin/fiaker"
 name         = "Fiaker"
-version      = "0.1.2"
+version      = "0.2.0"
 plugin_api   = 23   # readFileAsync; nothing here needs a higher level
 author       = "137-trimethylxanthin"
 license      = "MIT"

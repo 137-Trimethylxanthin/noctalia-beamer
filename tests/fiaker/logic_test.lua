@@ -122,6 +122,13 @@ local dstPlan = layout.planDay({ { id = "d", title = "d", startUnix = nine, endU
 local firstGap = dstPlan.lanes[1][1]
 check("09:00 on the spring-forward day sits 8 hours down", firstGap.kind == "gap" and math.abs(firstGap.h - 480) < 1, firstGap.h)
 check("the day is 23 hours tall", math.abs(dstPlan.height - 23 * 60) < 1, dstPlan.height)
+local gutterH, nineAt = 0, nil
+for _, hr in ipairs(dstPlan.hours) do
+  if hr.hour == 9 then nineAt = gutterH end
+  gutterH = gutterH + hr.h
+end
+check("the hour gutter is as tall as the day", math.abs(gutterH - dstPlan.height) < 1, gutterH)
+check("the 09:00 label sits beside 09:00", nineAt and math.abs(nineAt - 480) < 1, nineAt)
 local tiny = {}
 local base = date.mktime({ year = 2026, month = 9, day = 21, hour = 9 })
 for i = 0, 9 do

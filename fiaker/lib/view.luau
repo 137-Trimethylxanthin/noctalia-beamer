@@ -191,10 +191,15 @@ function M.dayTree(opts)
     nowUnix = opts.nowUnix,
   })
 
+  -- Hour labels in the shell's own clock format, so a 12-hour clock reads
+  -- 9:00 AM here too.
+  local hourPattern = timePattern()
   local gutter = {}
   for _, hr in ipairs(plan.hours) do
+    local text = string.format("%02d:00", hr.hour)
+    if hr.at then text = noctalia.formatTime(hourPattern, hr.at) end
     table.insert(gutter, ui.column({ height = hr.h, align = "end" }, {
-      ui.label({ text = string.format("%02d:00", hr.hour),
+      ui.label({ text = text,
                  fontSize = 9, color = "on_surface_variant/0.8" }),
     }))
   end

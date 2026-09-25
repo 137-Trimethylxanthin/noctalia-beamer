@@ -50,18 +50,26 @@ path     = "~/.calendars"
 
 Then set the plugin's **vdir path** to the same folder.
 
-**Limitations of this backend**, both of which vanish on the native backend:
+**Recurring events are expanded**, to every instance inside the window:
+`RRULE` with `FREQ=DAILY`, `WEEKLY`, `MONTHLY` or `YEARLY`, `INTERVAL`, `COUNT`,
+`UNTIL`, `BYDAY` (also `2MO` or `-1FR`), `BYMONTHDAY`, `BYMONTH`, `BYSETPOS`
+and `WKST`; `EXDATE`; and `RECURRENCE-ID` overrides that move or cancel one
+instance. A weekly meeting stays at its wall-clock time across DST, and a
+birthday entered in 1945 shows up this year. Rules finer than a day (`HOURLY`
+and below) or with `BYYEARDAY` / `BYWEEKNO` show their first instance only.
 
-- **No RRULE expansion.** A recurring event shows only its first instance, and the count of
-  skipped repeats is logged. Writing an iCalendar recurrence engine in Luau is not worth it —
-  `khal` already does it, and so does Noctalia itself.
-- **`TZID` is read as local wall-clock time**, except UTC and GMT. Correct for your own
-  calendars in your own timezone; wrong for an event pinned to another zone.
+**Limitation:** `TZID` is read as local wall-clock time, except UTC and GMT.
+Correct for your own calendars in your own timezone; wrong for an event pinned
+to another zone.
 
-What it does handle: all-day events (on their own day, not spilling into the next), events
-with `DURATION` instead of `DTEND`, cancelled events (left out), reminders (`VALARM`) inside an
-event, quoted parameters such as Exchange's `ALTREP="…"`, and events outside the ±window days
-(left out, so a years-deep vdirsyncer mirror stays cheap).
+What it does handle: all-day events (on their own day, not spilling into the
+next), events with `DURATION` instead of `DTEND` (days counted as calendar
+days, so `P1D` ends at midnight on a DST day too), events without a title,
+cancelled events (left out), reminders (`VALARM`) inside an event, quoted
+parameters such as Exchange's `ALTREP="…"`, dates before 1970, and events
+outside the ±window days (left out, so a years-deep vdirsyncer mirror stays
+cheap). A file that cannot be read is skipped and logged; the rest still
+load.
 
 ### The native path (needs a core patch)
 
