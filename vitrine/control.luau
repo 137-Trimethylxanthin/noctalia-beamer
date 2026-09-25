@@ -41,9 +41,19 @@ do
   local path = memoryPath()
   local raw = path and noctalia.fileExists(path) and noctalia.readFile(path)
   local value = raw and noctalia.json.decode(raw)
+  -- A file edited by hand, or cut short, must not break a switch later:
+  -- only whole records are kept.
   if type(value) == "table" then
-    memory.internal = type(value.internal) == "table" and value.internal or nil
-    memory.extend = type(value.extend) == "table" and value.extend or nil
+    memory.internal = core.validRecord(value.internal) and value.internal or nil
+    if type(value.extend) == "table" and type(value.extend.outputs) == "table" then
+      local outputs = {}
+      for _, rec in ipairs(value.extend.outputs) do
+        if core.validRecord(rec) then
+          table.insert(outputs, rec)
+        end
+      end
+      memory.extend = if #outputs >= 2 then { outputs = outputs } else nil
+    end
   end
 end
 
@@ -66,15 +76,46 @@ end
 
 -- ── Reading ──────────────────────────────────────────────────────────────────
 
-local function lidClosed()
-  local dirs = noctalia.listDir("/proc/acpi/button/lid")
-  for _, name in ipairs(dirs or {}) do
-    local text = noctalia.readFile("/proc/acpi/button/lid/" .. name .. "/state")
-    if core.parseLid(text) == "closed" then
-      return true
-    end
+-- The lid, from ACPI where there is one. Many newer laptops (s2idle only,
+-- ARM) have no /proc/acpi/button/lid; there logind's LidClosed says it,
+-- asked on every look and used from the last answer.
+local logindLid = nil
+local askingLogind = false
+
+local function askLogind()
+  if askingLogind or not noctalia.commandExists("busctl") then
+    return
   end
-  return false
+  askingLogind = true
+  local accepted = noctalia.runAsync({
+    "busctl", "get-property", "org.freedesktop.login1", "/org/freedesktop/login1",
+    "org.freedesktop.login1.Manager", "LidClosed",
+  }, function(result)
+    askingLogind = false
+    logindLid = core.parseLogindLid(result.exitCode == 0 and result.stdout or nil)
+  end)
+  if not accepted then
+    askingLogind = false
+  end
+end
+
+local function lidClosed(info)
+  -- Without a built-in panel there is no lid to ask about.
+  if info == nil or info.internal == nil or not core.isInternal(info.internal.name) then
+    return false
+  end
+  local dirs = noctalia.listDir("/proc/acpi/button/lid")
+  if dirs ~= nil and #dirs > 0 then
+    for _, name in ipairs(dirs) do
+      local text = noctalia.readFile("/proc/acpi/button/lid/" .. name .. "/state")
+      if core.parseLid(text) == "closed" then
+        return true
+      end
+    end
+    return false
+  end
+  askLogind()
+  return logindLid == true
 end
 
 local last = nil -- the last info read
@@ -82,7 +123,7 @@ local last = nil -- the last info read
 local function caps(info)
   return {
     mirror = backend ~= nil and backend.caps.mirror == true,
-    lidClosed = lidClosed(),
+    lidClosed = lidClosed(info),
     external = info and #info.external or 0,
   }
 end
@@ -147,6 +188,10 @@ end
 -- ── Switching ────────────────────────────────────────────────────────────────
 
 local switching = false
+local switchingSince = 0
+-- A switch that never reports back (a helper that hung) must not lock the
+-- display key for good.
+local SWITCH_TIMEOUT_MS = 30000
 
 local function announce(mode, ok, reason)
   if ok then
@@ -167,25 +212,37 @@ local function announce(mode, ok, reason)
   end
 end
 
--- Whether every name in `names` is on, by a fresh look.
-local function checkUp(names, done)
+-- Whether any name in `names` is on, by a fresh look. A screen can take a
+-- moment to come up after the compositor accepted the change (a modeset, a
+-- config reload), so it looks again every quarter second for up to three.
+local CHECK_TRIES = 12
+
+local function checkUp(names, done, tries)
+  tries = tries or 1
   read(function(info)
-    if info == nil then
+    if info ~= nil then
+      local on = {}
+      for _, head in ipairs({ info.internal, table.unpack(info.external) }) do
+        if head.enabled then
+          on[head.name] = true
+        end
+      end
+      -- One screen up is enough to switch another off; they need not all be.
+      for _, name in ipairs(names) do
+        if on[name] then
+          return done(true)
+        end
+      end
+    end
+    if tries >= CHECK_TRIES then
       return done(false)
     end
-    local on = {}
-    for _, head in ipairs({ info.internal, table.unpack(info.external) }) do
-      if head.enabled then
-        on[head.name] = true
-      end
+    local accepted = noctalia.runAsync({ "sleep", "0.25" }, function()
+      checkUp(names, done, tries + 1)
+    end)
+    if not accepted then
+      done(false)
     end
-    -- One screen up is enough to switch another off; they need not all be.
-    for _, name in ipairs(names) do
-      if on[name] then
-        return done(true)
-      end
-    end
-    done(false)
   end)
 end
 
@@ -235,19 +292,29 @@ local function switch(mode)
     return announce(mode, false, "no-backend")
   end
   switching = true
+  switchingSince = noctalia.nowMs()
   read(function(info)
     if info == nil then
       switching = false
       return announce(mode, false, "failed")
     end
-    local steps, reason = core.plan(mode, info, memory, caps(info))
+    local planned, steps, reason = pcall(core.plan, mode, info, memory, caps(info))
+    if not planned then
+      switching = false
+      noctalia.log("vitrine: could not plan " .. mode .. ": " .. tostring(steps))
+      return announce(mode, false, "failed")
+    end
     if steps == nil then
       switching = false
       return announce(mode, false, reason)
     end
     -- Extend with nothing remembered, on Hyprland: the user's own config
     -- describes it, so re-apply that rather than guess.
+    local mine = switchingSince
     local function finish(ok, why)
+      if switchingSince ~= mine then
+        return -- timed out long ago; a newer switch owns the state
+      end
       switching = false
       announce(mode, ok, why)
       read()
@@ -310,6 +377,11 @@ end
 -- helper process per look.
 noctalia.setUpdateInterval(if backend == hyprland then 3000 else 6000)
 function update()
+  if switching and noctalia.nowMs() - switchingSince > SWITCH_TIMEOUT_MS then
+    noctalia.log("vitrine: a switch never finished; giving up on it")
+    switching = false
+    switchingSince = 0
+  end
   if not switching then
     read()
   end

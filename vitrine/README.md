@@ -60,8 +60,8 @@ filters on the visible name and on the internal id, so both `duplicate` and
 
 Plug the external screen in first. With nothing attached, every layout except
 **Laptop only** is a no-op, and the rows say so instead of failing quietly; a
-row that is not possible right now (Duplicate off Hyprland, Laptop only with
-the lid closed) says why.
+row that is not possible right now (Duplicate off Hyprland, anything that
+would light the built-in screen with the lid closed) says why.
 
 The `cycle` shortcut is a control-center tile that steps to the next layout on
 each click. Add it under **Settings → Control Center shortcuts**. The tile shows
@@ -113,8 +113,11 @@ skipping the layouts that are not possible right now. `set` takes one of
 in two steps: first the screen that stays is switched on, then Vitrine reads the
 monitors again, and only if it really came up is the other one switched off.
 If the projector does not come on, the built-in screen stays on and Vitrine
-says so. With the laptop lid closed, **Laptop only** and **Duplicate** are
-refused, and the display key's cycle skips them.
+says so. It gives a new screen up to three seconds to come up before it counts
+as not there. With the laptop lid closed, **Laptop only**, **Duplicate** and
+**Extend** are refused, since each would light the screen under the lid, and
+the display key's cycle skips them. The lid is read from
+`/proc/acpi/button/lid`, or from logind where a laptop has none.
 
 **Extend brings back your layout.** Whenever Vitrine sees Extend on, it
 remembers where every screen was, at which mode, scale and rotation, and

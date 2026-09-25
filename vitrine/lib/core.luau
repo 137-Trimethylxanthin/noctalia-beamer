@@ -70,6 +70,28 @@ function M.parseLid(text)
   return nil
 end
 
+-- "b true" / "b false" from `busctl get-property ... LidClosed`: true,
+-- false, or nil when there is no answer.
+function M.parseLogindLid(text)
+  if type(text) ~= "string" then
+    return nil
+  end
+  local value = string.match(text, "^%s*b%s+(%a+)")
+  if value == "true" then
+    return true
+  elseif value == "false" then
+    return false
+  end
+  return nil
+end
+
+-- Whether a remembered record is whole enough to switch to.
+function M.validRecord(rec)
+  return type(rec) == "table" and type(rec.name) == "string" and string.match(rec.name, M.SAFE_NAME) ~= nil
+    and type(rec.mode) == "table" and type(rec.mode.width) == "number" and rec.mode.width > 0
+    and type(rec.mode.height) == "number" and rec.mode.height > 0
+end
+
 -- Splits the heads into the built-in panel and the external screens, and
 -- works out which layout is on.
 function M.classify(heads)
@@ -133,12 +155,50 @@ function M.record(head)
   end
   return {
     name = head.name,
+    -- Which screen it was, not only which connector: another projector on
+    -- the same port must not get this one's mode.
+    description = head.description,
     mode = { width = head.width, height = head.height, refresh = head.refresh or 0 },
     x = head.x or 0,
     y = head.y or 0,
     scale = head.scale or 1,
     transform = head.transform or 0,
   }
+end
+
+-- Whether a record is of this head: the same connector, and the same screen
+-- on it when both say which.
+function M.sameScreen(rec, head)
+  if rec == nil or head == nil or rec.name ~= head.name then
+    return false
+  end
+  local a, b = rec.description, head.description
+  return a == nil or a == "" or b == nil or b == "" or a == b
+end
+
+-- The logical width a record takes up.
+local function recordWidth(rec)
+  local mode = type(rec.mode) == "table" and rec.mode or {}
+  local w = M.logicalSize({ width = mode.width, height = mode.height, scale = rec.scale, transform = rec.transform })
+  return w
+end
+
+-- The size a screen switched on at its preferred mode will have: the mode
+-- the output marks preferred, or else the first it lists, or else a guess.
+function M.preferredSize(head)
+  local modes = type(head.modes) == "table" and head.modes or {}
+  local pick = nil
+  for _, mode in ipairs(modes) do
+    if mode.preferred then
+      pick = mode
+      break
+    end
+  end
+  pick = pick or modes[1]
+  if pick and (pick.width or 0) > 0 then
+    return pick.width, pick.height or 0
+  end
+  return 1920, 1080
 end
 
 -- The layout to go back to for Extend: every screen that is on, as it is,
@@ -193,7 +253,9 @@ function M.allowed(mode, caps)
   if mode == "mirror" and caps.mirror ~= true then
     return false, "no-mirror"
   end
-  if (mode == "internal" or mode == "mirror") and caps.lidClosed then
+  -- With the lid closed the panel stays off: Extend and Duplicate would
+  -- light it under the lid, Laptop only would leave nothing to look at.
+  if (mode == "internal" or mode == "mirror" or mode == "extend") and caps.lidClosed then
     return false, "lid-closed"
   end
   if mode ~= "internal" and (caps.external or 0) == 0 then
@@ -233,6 +295,20 @@ function M.plan(mode, info, remembered, caps)
     table.insert(externals, head.name)
   end
 
+  -- A screen that is already on stays as it is: its mode, place, scale and
+  -- rotation all go into the config, since not every backend keeps a field
+  -- that is left out (Hyprland's rules do not).
+  local function keep(head, extra)
+    local rec = M.record(head) or { name = head.name }
+    return copy(rec, copy({ enabled = true, mirror = "" }, extra))
+  end
+  -- A screen switched on from off: its preferred mode at scale 1, at `x`.
+  -- Returns the config and the x after it.
+  local function switchOn(head, x, y)
+    local w = M.preferredSize(head)
+    return { name = head.name, enabled = true, mode = "preferred", scale = 1, x = x, y = y or 0, mirror = "" }, x + w
+  end
+
   if mode == "internal" then
     local off = {}
     for _, head in ipairs(info.external) do
@@ -242,14 +318,23 @@ function M.plan(mode, info, remembered, caps)
   end
 
   if mode == "external" then
-    local on, x = {}, 0
+    -- Screens switched on go in a row to the right of everything that is
+    -- on now, the panel included, so nothing overlaps while it still is.
+    local right = 0
+    for _, head in ipairs({ internal, table.unpack(info.external) }) do
+      if head.enabled then
+        right = math.max(right, (head.x or 0) + M.logicalSize(head))
+      end
+    end
+    local on, x = {}, right
     for _, head in ipairs(info.external) do
       if head.enabled then
-        table.insert(on, { name = head.name, enabled = true, mirror = "" })
+        table.insert(on, keep(head))
       else
-        table.insert(on, { name = head.name, enabled = true, mode = "preferred", x = x, y = 0, mirror = "" })
+        local cfg
+        cfg, x = switchOn(head, x)
+        table.insert(on, cfg)
       end
-      x += 10000 -- far apart, so screens switched on together never overlap
     end
     return { on, { requires = externals, { name = internal.name, enabled = false } } }
   end
@@ -266,42 +351,65 @@ function M.plan(mode, info, remembered, caps)
   -- Extend: the layout that was on the last time extend was, if it covers
   -- these screens; otherwise the panel where it was and every external
   -- screen to its right, in a row.
+  -- Screens in the remembered layout that are not attached any more are
+  -- left out (the compositor would refuse the whole change over them), and
+  -- attached ones it does not know go to its right.
   local snap = remembered.extend
-  if snap and snap.outputs then
-    local names = {}
+  if snap and type(snap.outputs) == "table" then
+    local byName = {}
     for _, rec in ipairs(snap.outputs) do
-      names[rec.name] = true
+      if type(rec) == "table" and type(rec.name) == "string" and type(rec.mode) == "table" then
+        byName[rec.name] = rec
+      end
     end
-    local covers = names[internal.name] == true
-    local anyExternal = false
+    local covers = M.sameScreen(byName[internal.name], internal)
+    local known = {}
     for _, head in ipairs(info.external) do
-      anyExternal = anyExternal or names[head.name] == true
+      if M.sameScreen(byName[head.name], head) then
+        known[head.name] = true
+      end
     end
-    if covers and anyExternal then
-      local configs = {}
-      for _, rec in ipairs(snap.outputs) do
-        table.insert(configs, copy(rec, { enabled = true, mirror = "" }))
+    if covers and next(known) ~= nil then
+      local configs = { copy(byName[internal.name], { enabled = true, mirror = "" }) }
+      local right = byName[internal.name].x + recordWidth(byName[internal.name])
+      for _, head in ipairs(info.external) do
+        local rec = byName[head.name]
+        if known[head.name] then
+          table.insert(configs, copy(rec, { enabled = true, mirror = "" }))
+          right = math.max(right, (rec.x or 0) + recordWidth(rec))
+        end
+      end
+      for _, head in ipairs(info.external) do
+        if not known[head.name] then
+          if head.enabled then
+            table.insert(configs, keep(head, { x = right, y = 0 }))
+            right += M.logicalSize(head)
+          else
+            local cfg
+            cfg, right = switchOn(head, right)
+            table.insert(configs, cfg)
+          end
+        end
       end
       return { configs }
     end
   end
   local configs = { panelOn({ mirror = "" }) }
   local px = panel and panel.x or 0
+  local py = panel and panel.y or 0
   local pw = M.logicalSize(panel and {
     width = panel.mode.width, height = panel.mode.height, scale = panel.scale, transform = panel.transform,
   } or internal)
   local x = px + pw
   for _, head in ipairs(info.external) do
-    local cfg = { name = head.name, enabled = true, mirror = "", x = x, y = panel and panel.y or 0 }
-    if not head.enabled then
-      cfg.mode = "preferred"
-      cfg.scale = 1
-      x += 1920
+    if head.enabled then
+      table.insert(configs, keep(head, { x = x, y = py }))
+      x += M.logicalSize(head)
     else
-      local w = M.logicalSize(head)
-      x += w
+      local cfg
+      cfg, x = switchOn(head, x, py)
+      table.insert(configs, cfg)
     end
-    table.insert(configs, cfg)
   end
   return { configs, fallback = true }
 end

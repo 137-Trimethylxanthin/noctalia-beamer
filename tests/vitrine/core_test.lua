@@ -45,6 +45,12 @@ check("a rotated panel swaps", w == 1280 and h == 800, w .. "x" .. h)
 check("lid closed", core.parseLid("state:      closed\n") == "closed")
 check("lid open", core.parseLid("state:      open\n") == "open")
 check("no lid", core.parseLid(nil) == nil)
+check("logind: lid closed", core.parseLogindLid("b true\n") == true)
+check("logind: lid open", core.parseLogindLid("b false\n") == false)
+check("logind: no answer", core.parseLogindLid("") == nil and core.parseLogindLid(nil) == nil)
+check("a whole record", core.validRecord({ name = "eDP-1", mode = { width = 2560, height = 1600, refresh = 60000 } }))
+check("a record without a mode is not", not core.validRecord({ name = "eDP-1" }))
+check("a record with an odd name is not", not core.validRecord({ name = "eDP-1; rm", mode = { width = 1, height = 1 } }))
 
 print("== what is allowed ==")
 local caps = { mirror = true, lidClosed = false, external = 1 }
@@ -54,7 +60,9 @@ check("lid closed: not the panel", select(2, core.allowed("internal", { lidClose
 check("nothing attached", select(2, core.allowed("external", { external = 0 })) == "no-external")
 check("cycle skips what is not possible", core.nextMode("extend", { mirror = false, external = 1 }) == "external")
 check("cycle with the lid closed never lands on the panel",
-  core.nextMode("external", { mirror = true, lidClosed = true, external = 1 }) == "extend")
+  core.nextMode("external", { mirror = true, lidClosed = true, external = 1 }) == "external")
+check("lid closed: no extend either, it would light the panel", select(2, core.allowed("extend", { lidClosed = true, external = 1 })) == "lid-closed")
+check("lid closed: external only is fine", core.allowed("external", { lidClosed = true, external = 1 }))
 
 print("== plans ==")
 local rotated = head("DSI-1", true, { width = 800, height = 1280, transform = 3, scale = 1.5 })
@@ -78,6 +86,39 @@ check("extend brings the remembered layout back", not steps.fallback and #steps[
 steps = core.plan("extend", laptopOnly, {}, caps)
 check("with nothing remembered: panel, then the external to its right", steps.fallback and steps[1][2].x == 2048, steps[1][2].x)
 check("no screens at all", core.plan("internal", { external = {} }, {}, {}) == nil)
+
+-- A screen that is already on keeps everything it has: Hyprland's rules
+-- turn a missing field into preferred / auto.
+local fast = head("DP-1", true, { width = 2560, height = 1440, refresh = 164995, x = -2560, y = 0, scale = 1.25 })
+steps = core.plan("external", core.classify({ panel, fast }), {}, { external = 1 })
+local kept = steps[1][1]
+check("external only: an external that is on keeps its mode", type(kept.mode) == "table" and kept.mode.refresh == 164995, kept.mode)
+check("... and its place and scale", kept.x == -2560 and kept.scale == 1.25)
+-- Two screens switched on at once sit side by side, at their real widths.
+local wide = head("DP-2", false, { modes = { { width = 3440, height = 1440, refresh = 60000, preferred = true } } })
+local plain = head("DP-3", false, { modes = { { width = 1920, height = 1080, refresh = 60000 } } })
+steps = core.plan("external", core.classify({ panel, wide, plain }), {}, { external = 2 })
+check("switched on in a row after the panel", steps[1][1].x == 2048 and steps[1][2].x == 2048 + 3440, steps[1][2].x)
+steps = core.plan("extend", core.classify({ panel, wide, plain }), {}, { external = 2 })
+check("extend fallback uses the preferred width", steps.fallback and steps[1][2].x == 2048 and steps[1][3].x == 2048 + 3440, steps[1][3].x)
+-- A remembered layout with a screen that is gone, and without one that is new.
+local dock = { outputs = {
+  core.record(panel),
+  { name = "DP-7", mode = { width = 1920, height = 1080, refresh = 60000 }, x = 2048, y = 0, scale = 1, transform = 0 },
+  { name = "DP-8", mode = { width = 1920, height = 1080, refresh = 60000 }, x = 3968, y = 0, scale = 1, transform = 0 },
+} }
+steps = core.plan("extend", core.classify({ panel, head("DP-7", false), head("DP-9", false) }), { extend = dock }, { external = 2 })
+local names = {}
+for _, cfg in ipairs(steps[1]) do names[cfg.name] = cfg end
+check("a remembered screen that is gone is left out", names["DP-8"] == nil)
+check("the one still there comes back where it was", names["DP-7"] and names["DP-7"].x == 2048)
+check("a new one goes to the right of the layout", names["DP-9"] and names["DP-9"].enabled and names["DP-9"].x == 2048 + 1920, names["DP-9"] and names["DP-9"].x)
+-- Another screen on the same connector does not get the remembered mode.
+local mine = { outputs = { core.record(panel), { name = "DP-7", description = "Home monitor", mode = { width = 2560, height = 1440, refresh = 144000 },
+  x = 2048, y = 0, scale = 1, transform = 0 } } }
+local projector = head("DP-7", false, { description = "Beamer XYZ" })
+steps = core.plan("extend", core.classify({ panel, projector }), { extend = mine }, { external = 1 })
+check("a different screen on the same port starts fresh", steps.fallback == true and steps[1][2].mode == "preferred")
 
 print("== hyprland ==")
 local monitors = {

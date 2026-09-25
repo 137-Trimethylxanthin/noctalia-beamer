@@ -31,12 +31,16 @@ from __future__ import annotations
 
 import json
 import os
+import select
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from pywayland.client import Display  # noqa: E402
 from wlr_output_management_unstable_v1 import ZwlrOutputManagerV1  # noqa: E402
+
+ANSWER_SECONDS = 10  # how long a change may take before it counts as failed
 
 
 class Head:
@@ -153,12 +157,27 @@ def apply(display, manager, heads, serial, config, test_only):
     cfg.dispatcher["failed"] = lambda _c: result.update(r="failed")
     cfg.dispatcher["cancelled"] = lambda _c: result.update(r="cancelled")
     (cfg.test if test_only else cfg.apply)()
-    for _ in range(50):
-        display.roundtrip()
+    # The answer comes once the compositor has done it, which for a modeset
+    # can take a second or two: wait for it, not for a number of roundtrips.
+    display.flush()
+    fd = display.get_fd()
+    deadline = time.monotonic() + ANSWER_SECONDS
+    while not result:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            break
+        display.dispatch(block=False)
         if result:
             break
+        display.flush()
+        readable, _, _ = select.select([fd], [], [], left)
+        if readable:
+            display.read()
+            display.dispatch(block=False)
     cfg.destroy()
-    return result.get("r", "failed"), None
+    if not result:
+        return "failed", "no answer from the compositor"
+    return result["r"], None
 
 
 def main():
@@ -182,7 +201,15 @@ def main():
     if not isinstance(config, list):
         print("failed: configuration must be a JSON list", flush=True)
         return 2
-    outcome, why = apply(display, manager, heads, serial, config, "--test" in sys.argv[3:])
+    test_only = "--test" in sys.argv[3:]
+    outcome, why = apply(display, manager, heads, serial, config, test_only)
+    if outcome == "cancelled":
+        # The outputs changed under us (a hotplug, another tool): look again
+        # and try once more against what is there now.
+        display.disconnect()
+        display, registry, manager, heads, serial = connect()
+        if manager is not None:
+            outcome, why = apply(display, manager, heads, serial, config, test_only)
     print(outcome if why is None else f"{outcome}: {why}", flush=True)
     return 0 if outcome == "succeeded" else 1
 
