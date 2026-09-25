@@ -288,7 +288,7 @@ local function checkJob(done)
     -- the event stream missed its window.
     if awaiting ~= nil then
       for _, window in ipairs(windows or {}) do
-        if window.class == awaiting.class and (target == nil or window.id ~= target.id) then
+        if window.class == awaiting.class and not awaiting.existing[window.id] and (target == nil or window.id ~= target.id) then
           awaiting = nil
           follow(window.id, "spawned")
           return done()
@@ -380,6 +380,7 @@ local function checkJob(done)
 
     if action == "adopt" or action == "unhide" then
       target.mode = "home"
+      tellPlayer(false)
     end
     publish()
     done()
@@ -403,6 +404,9 @@ end
 -- `remember` keeps auto-follow from grabbing it straight back.
 local function release(remember, done)
   local old = target
+  if old ~= nil and old.mode == "pip" then
+    tellPlayer(false) -- while it is still the target: the player drops its corner controls
+  end
   target = nil
   if old ~= nil and remember then
     declined[old.id] = true
@@ -560,10 +564,21 @@ local function play(url)
     noctalia.runAsync(argv)
     return say("opening-unfollowed", { url = url })
   end
-  awaiting = { class = noctalia.getConfig("player_class"), since = os.time() }
-  noctalia.runAsync(argv)
-  say("opening", { url = url })
-  check()
+  -- Players of that class already open (an earlier /pip left running) are
+  -- not the new one: they are noted before it starts, and passed over.
+  local class = noctalia.getConfig("player_class")
+  backend.list(function(windows)
+    local existing = {}
+    for _, window in ipairs(windows or {}) do
+      if window.class == class then
+        existing[window.id] = true
+      end
+    end
+    awaiting = { class = class, since = os.time(), existing = existing }
+    noctalia.runAsync(argv)
+    say("opening", { url = url })
+    check()
+  end)
 end
 
 local function handle(request)
@@ -607,7 +622,9 @@ end
 local function onEvent(event)
   if event.kind == "open" then
     if awaiting ~= nil and event.id ~= nil then
-      if event.class == awaiting.class then
+      -- niri reports a changed title as an open too: a player that was
+      -- already there is not the one just started.
+      if event.class == awaiting.class and not awaiting.existing[event.id] then
         awaiting = nil
         return follow(event.id, "spawned")
       end

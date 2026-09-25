@@ -12,9 +12,14 @@
 -- action` takes an index, which changes as workspaces move). Events come from
 -- `niri msg --json event-stream`.
 --
--- Floating positions in niri are relative to the output's working area, and
--- the IPC does not say how big the bar is, so the corner is computed on the
--- whole output. With a bar on the corner's edge, raise the margin.
+-- Two frames: niri reports a floating window's place in the workspace view
+-- (the output), but MoveFloatingWindow's SetFixed is relative to the working
+-- area, which starts past a bar on the top or left edge. The IPC does not say
+-- how big the bar is, so the first placement on each output measures it:
+-- the window is read back, the difference remembered, and the window put
+-- right. Every later placement on that output is right at once. The corner
+-- is computed on the whole output; with a bar on the corner's edge, raise
+-- the margin.
 
 local stream = require("./stream.luau")
 
@@ -49,6 +54,7 @@ function M.window(raw, workspaces)
   local workspace = workspaces and workspaces[raw.workspace_id] or nil
   return {
     id = id,
+    output = workspace and workspace.output or nil,
     title = raw.title or "",
     class = raw.app_id or "",
     ws = raw.workspace_id,
@@ -99,15 +105,19 @@ function M.screen(workspaces, outputs)
   if focused and focused.output and type(outputs) == "table" and outputs[focused.output] then
     logical = outputs[focused.output].logical
   end
+  if logical == nil then
+    return nil -- no size to place by; better no move than a wrong one
+  end
   return {
     visible = visible,
-    area = { x = 0, y = 0, w = logical and logical.width or 1280, h = logical and logical.height or 720 },
+    area = { x = 0, y = 0, w = logical.width or 1280, h = logical.height or 720 },
     workspace = focused and focused.id or nil,
+    output = focused and focused.output or nil,
   }
 end
 
 function M.homeOf(window)
-  return { ws = window.ws }
+  return { ws = window.ws, output = window.output }
 end
 
 -- ── Commands ─────────────────────────────────────────────────────────────────
@@ -153,8 +163,33 @@ local function size(id, w, h)
     string.format('{"Action":{"SetWindowHeight":{"id":%s,"change":{"SetFixed":%d}}}}', id, h)
 end
 
-local function place(id, x, y)
-  return string.format('{"Action":{"MoveFloatingWindow":{"id":%s,"x":{"SetFixed":%d},"y":{"SetFixed":%d}}}}', id, x, y)
+-- [output] = { x, y }: how far the working area starts from the output's
+-- corner, as measured (see the top of this file).
+local offsets = {}
+
+function M.offsetOf(output)
+  return offsets[output or ""] or { x = 0, y = 0 }
+end
+
+local function place(id, x, y, output)
+  local off = M.offsetOf(output)
+  return string.format('{"Action":{"MoveFloatingWindow":{"id":%s,"x":{"SetFixed":%d},"y":{"SetFixed":%d}}}}',
+    id, math.floor(x - off.x), math.floor(y - off.y))
+end
+
+-- What a read-back after a placement teaches: the offset to remember, or
+-- nil when the window is where it was asked to be (or so far off that
+-- something else moved it, niri's clamp at a screen edge for one).
+function M.learnOffset(requested, reported, known)
+  known = known or { x = 0, y = 0 }
+  local dx, dy = reported.x - requested.x, reported.y - requested.y
+  if dx == 0 and dy == 0 then
+    return nil
+  end
+  if math.abs(dx) > 400 or math.abs(dy) > 400 then
+    return nil
+  end
+  return { x = known.x + dx, y = known.y + dy }
 end
 
 local function toWorkspace(id, ws)
@@ -163,21 +198,47 @@ end
 
 -- The window is on its home workspace, which has just left the screen, so it
 -- is brought over to the one on screen in the same step.
+local readJson -- below
+
+-- Reads the window back after a placement; if it landed off by the bar,
+-- remembers that for `output` and puts it right. Then `done`.
+local function verify(id, x, y, output, done)
+  readJson("windows", function(raw)
+    local now = nil
+    for _, entry in ipairs(raw or {}) do
+      if M.id(entry.id) == id then
+        now = M.window(entry, nil)
+      end
+    end
+    local learned = now and output and M.learnOffset({ x = x, y = y }, now, offsets[output])
+    if learned == nil then
+      if done then done() end
+      return
+    end
+    offsets[output] = learned
+    send({ place(id, x, y, output) }, done)
+  end)
+end
+
 function M.enter(window, rect, screen, done)
   local w, h = size(window.id, rect.w, rect.h)
   local actions = { floating(window.id), w, h }
   if type(screen.workspace) == "number" then
     table.insert(actions, toWorkspace(window.id, screen.workspace))
   end
-  table.insert(actions, place(window.id, rect.x, rect.y))
-  send(actions, done)
+  table.insert(actions, place(window.id, rect.x, rect.y, screen.output))
+  send(actions, function()
+    verify(window.id, rect.x, rect.y, screen.output, done)
+  end)
 end
 
 function M.carry(window, rect, screen, done)
   if type(screen.workspace) ~= "number" then
     return done()
   end
-  send({ toWorkspace(window.id, screen.workspace), place(window.id, rect.x, rect.y) }, done)
+  send({ toWorkspace(window.id, screen.workspace), place(window.id, rect.x, rect.y, screen.output) }, function()
+    verify(window.id, rect.x, rect.y, screen.output, done)
+  end)
 end
 
 local function exitActions(t)
@@ -190,7 +251,8 @@ local function exitActions(t)
     local w, h = size(t.id, orig.w, orig.h)
     table.insert(actions, w)
     table.insert(actions, h)
-    table.insert(actions, place(t.id, orig.x, orig.y))
+    -- orig was read in the view frame, like every reported position.
+    table.insert(actions, place(t.id, orig.x, orig.y, t.home and t.home.output))
   else
     table.insert(actions, tiling(t.id))
   end
@@ -219,7 +281,7 @@ end
 
 -- Always calls `done` exactly once, nil on any failure, including a refused
 -- runAsync: the service's queue waits on it.
-local function readJson(what, done)
+function readJson(what, done)
   local accepted = noctalia.runAsync({ "niri", "msg", "--json", what }, function(result)
     if result.exitCode ~= 0 then
       return done(nil)
@@ -245,7 +307,14 @@ function M.read(done)
         return done(nil, nil)
       end
       readJson("outputs", function(outputs)
-        done(M.screen(workspaces, outputs), M.windows(windows, workspaces))
+        if outputs == nil then
+          return done(nil, nil)
+        end
+        local screen = M.screen(workspaces, outputs)
+        if screen == nil then
+          return done(nil, nil)
+        end
+        done(screen, M.windows(windows, workspaces))
       end)
     end)
   end)

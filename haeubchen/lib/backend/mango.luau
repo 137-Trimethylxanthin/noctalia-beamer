@@ -125,6 +125,41 @@ function M.screen(monitors)
   return { visible = visible, area = area, workspace = workspace }
 end
 
+-- The overview shows every tag at once and reports tag 0 as the active one;
+-- nothing reads as on screen then, so the corner window is left alone until
+-- it closes.
+function M.inOverview(monitors)
+  for _, monitor in ipairs(list(monitors, "monitors")) do
+    local tags = monitor.active_tags
+    if type(tags) == "table" and #tags == 1 and tags[1] == 0 then
+      return true
+    end
+  end
+  return false
+end
+
+-- A global window shows on every tag of its monitor, but Mango still reports
+-- the tag it came from, which is hidden once another tag is viewed. Read as
+-- it is, it would look carried off, and be carried back on each tag switch
+-- (taking the focus each time). So a global window on a monitor that is
+-- there counts as on that monitor's active tag.
+function M.settleGlobal(monitors, windows)
+  local active = {}
+  for _, monitor in ipairs(list(monitors, "monitors")) do
+    local tag = firstTag(monitor.active_tags)
+    if monitor.name and tag then
+      active[monitor.name] = tag
+    end
+  end
+  for _, window in ipairs(windows) do
+    local tag = window.sticky and active[window.monitor]
+    if tag then
+      window.ws = window.monitor .. ":" .. tostring(tag)
+    end
+  end
+  return windows
+end
+
 function M.homeOf(window)
   return { ws = window.ws, monitor = window.monitor, tag = window.tag }
 end
@@ -267,10 +302,10 @@ function M.read(done)
       return done(nil, nil)
     end
     readJson({ "get", "all-clients" }, function(clients)
-      if clients == nil then
+      if clients == nil or M.inOverview(monitors) then
         return done(nil, nil)
       end
-      done(M.screen(monitors), M.windows(clients))
+      done(M.screen(monitors), M.settleGlobal(monitors, M.windows(clients)))
     end)
   end)
 end
@@ -312,14 +347,24 @@ function M.exit(t, done)
 end
 
 -- Fire and forget, for onExit: no read first, so the state is assumed to be
--- what Häubchen left it in (global and floating).
+-- what Häubchen left it in (global and floating, in the corner it placed it
+-- in, which the relative moves back home start from).
 function M.exitDetached(t)
-  run(t.id, M.exitDispatches(t, nil), nil)
+  local placed = t.placed or {}
+  local now = { sticky = true, floating = true, fullscreen = 0, x = placed.x or 0, y = placed.y or 0 }
+  run(t.id, M.exitDispatches(t, now), nil)
 end
 
+-- Shows the home tag on the home monitor; plain `view` would switch the
+-- tag on whichever monitor has the focus.
 function M.focusHome(home)
   if home and type(home.tag) == "number" and home.tag > 0 then
-    noctalia.runAsync({ "mmsg", "dispatch", "view," .. tostring(math.floor(home.tag)) })
+    local tag = tostring(math.floor(home.tag))
+    if safeMonitor(home.monitor) then
+      noctalia.runAsync({ "mmsg", "dispatch", "viewcrossmon," .. tag .. "," .. home.monitor })
+    else
+      noctalia.runAsync({ "mmsg", "dispatch", "view," .. tag })
+    end
   end
 end
 
@@ -340,6 +385,14 @@ function M.diffClients(known, value)
     now[window.id] = true
     if known ~= nil and not known[window.id] then
       table.insert(events, { kind = "open", id = window.id, class = window.class })
+    end
+  end
+  -- A window sent to the scratchpad is still there, only out of sight: it
+  -- must not read as closed, or following it would end.
+  for _, client in ipairs(list(value, "clients")) do
+    local id = type(client) == "table" and M.id(client.id)
+    if id and (client.is_scratchpad == true or client.is_namedscratchpad == true) then
+      now[id] = true
     end
   end
   if known ~= nil then

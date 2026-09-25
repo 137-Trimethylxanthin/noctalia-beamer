@@ -7,7 +7,7 @@
 
 id           = "137-trimethylxanthin/haeubchen"
 name         = "Häubchen"
-version      = "0.2.0"
+version      = "0.2.1"
 plugin_api   = 24   # argv form of runAsync; also brings module-require and service-lifecycle
 author       = "137-trimethylxanthin"
 license      = "MIT"

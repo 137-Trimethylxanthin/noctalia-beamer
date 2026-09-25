@@ -161,6 +161,20 @@ check("scroll is its own backend", scroll.name == "scroll" and scroll.tools[1] =
 check("sway still sway", sway.name == "sway" and sway.tools[1] == "swaymsg")
 check("same parsing", #scroll.windows(tree) == #sway.windows(tree))
 
+-- niri reports the view frame, SetFixed takes the working area: a top bar
+-- of 32 px makes a window asked to y=700 read back at 732.
+check("niri learns the bar's offset", (function()
+  local o = niri.learnOffset({ x = 100, y = 700 }, { x = 100, y = 732 }, nil)
+  return o and o.x == 0 and o.y == 32
+end)())
+check("... adds to what it knew", (function()
+  local o = niri.learnOffset({ x = 100, y = 700 }, { x = 100, y = 702 }, { x = 0, y = 30 })
+  return o and o.y == 32
+end)())
+check("... and learns nothing from a right placement or a clamp", niri.learnOffset({ x = 1, y = 2 }, { x = 1, y = 2 }) == nil
+  and niri.learnOffset({ x = 1500, y = 900 }, { x = 800, y = 900 }) == nil)
+check("niri without outputs gives no screen", niri.screen({ { id = 1, is_active = true, is_focused = true, output = "DP-1" } }, nil) == nil)
+
 print("== mango ==")
 local clients = json.decode([[
 {"clients":[
@@ -211,6 +225,22 @@ for _, ev in ipairs(events) do kinds[ev.kind .. (ev.id or "")] = ev end
 check("new client opens with its class", kinds["open12"] and kinds["open12"].class == "haeubchen")
 check("gone client closes", kinds["close4"] ~= nil)
 check("and a check", kinds["check"] ~= nil)
+-- A global window reads as on its monitor's active tag, not the hidden one
+-- it came from, so it is not carried (and focused) on every tag switch.
+local settled = mango.settleGlobal(monitors, mango.windows(clients))
+check("global window on its monitor's active tag", settled[2].ws == "DP-1:1" and msc.visible[settled[2].ws])
+local switched = json.decode([[{"monitors":[{"name":"DP-1","active":true,"x":0,"y":0,"width":1920,"height":1080,"active_tags":[5]}]}]])
+check("... after a tag switch too", mango.settleGlobal(switched, mango.windows(clients))[2].ws == "DP-1:5")
+check("a tiled window keeps its own tag", mango.settleGlobal(switched, mango.windows(clients))[1].ws == "eDP-1:2")
+check("the overview is seen", mango.inOverview(json.decode([[{"monitors":[{"name":"DP-1","active_tags":[0]}]}]]))
+  and not mango.inOverview(monitors))
+local stashed = json.decode([[{"clients":[
+ {"id":4,"title":"VALORANT - Twitch","appid":"firefox","monitor":"eDP-1","tags":[2],"is_scratchpad":true,"x":0,"y":0,"width":1,"height":1},
+ {"id":7,"title":"notes","appid":"foot","monitor":"DP-1","tags":[1],"x":0,"y":0,"width":1,"height":1}]}]])
+local stashEvents = mango.diffClients(known, stashed)
+local closed4 = false
+for _, ev in ipairs(stashEvents) do if ev.kind == "close" and ev.id == "4" then closed4 = true end end
+check("a window sent to the scratchpad is not closed", not closed4)
 
 print()
 if fails > 0 then print(fails .. " failed"); os.exit(1) end
