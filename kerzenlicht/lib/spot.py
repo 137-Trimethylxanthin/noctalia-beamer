@@ -1,14 +1,16 @@
 """The flashlight's pixels, without Wayland: pure byte arithmetic, so the tests
 can run it anywhere.
 
-The overlay is one ARGB8888 buffer per output, fully transparent, with a
-round white glow stamped where the cursor is. Moving the light never redraws
-the whole screen: the glow's old square is cleared again and the glow is
-stamped at its new square, row by row. Both squares are what the compositor is
-told to repaint.
+The overlay is one ARGB8888 buffer per output, filled with a background (fully
+transparent for the glow, a sheet of translucent black to dim the screen), with
+a round stamp where the cursor is: white glow, a hole in the dimming, or both.
+Moving the light never redraws the whole screen: the stamp's old square gets
+the background again and the stamp goes on at its new square, row by row. Both
+squares are what the compositor is told to repaint.
 
 ARGB8888 is little-endian B, G, R, A in memory and premultiplied, so white at
-opacity a is (a, a, a, a), and a cleared pixel is all zeros.
+opacity a is (a, a, a, a), black at opacity a is (0, 0, 0, a), and a cleared
+pixel is all zeros.
 """
 
 from __future__ import annotations
@@ -32,25 +34,57 @@ def smoothstep(edge0: float, edge1: float, x: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-def glow(radius: int, softness: int, alpha: int) -> tuple[int, list[bytes]]:
-    """The stamp: a square of side 2 * (radius + softness), white at `alpha`
-    inside `radius`, fading out over `softness` pixels, clear in the corners.
+def dark(alpha: int) -> bytes:
+    """One premultiplied black pixel: the dimming."""
+    a = max(0, min(255, alpha))
+    return bytes((0, 0, 0, a))
+
+
+def over(white: int, black: int) -> bytes:
+    """White at opacity `white` composited over black at opacity `black`,
+    premultiplied: the glow lying on top of the dimming."""
+    w = max(0, min(255, white))
+    b = max(0, min(255, black))
+    a = w + round(b * (255 - w) / 255)
+    return bytes((w, w, w, a))
+
+
+def background(dim: int, width: int) -> bytes:
+    """One row of the buffer outside the stamp: clear, or dimmed."""
+    return (dark(dim) if dim > 0 else CLEAR) * width
+
+
+def spotlight(radius: int, softness: int, glow_alpha: int, dim_alpha: int) -> tuple[int, list[bytes]]:
+    """The stamp: a square of side 2 * (radius + softness). Inside `radius` it
+    is white at `glow_alpha`, and the dimming is gone; over the next
+    `softness` pixels the white fades out and the dimming (black at
+    `dim_alpha`) fades in, so the corners are exactly the background.
     Returns the half size and the rows, top to bottom.
 
-    Only one quarter is computed. A pixel is (a, a, a, a), so reversing a
-    row's bytes mirrors it exactly, and the bottom half is the top half's rows
-    in reverse order."""
+    Only one quarter is computed: the other three are the same pixels in
+    mirrored order, since the stamp is round."""
     half = max(1, radius + softness)
+    cache: dict[tuple[int, int], bytes] = {}
     top = []
     for y in range(half):
         dy = y + 0.5 - half
-        left = bytearray()
+        left = []
         for x in range(half):
             dx = x + 0.5 - half
-            d = math.hypot(dx, dy)
-            left += pixel(round(alpha * (1.0 - smoothstep(radius, radius + softness, d))))
-        top.append(bytes(left) + bytes(left[::-1]))
+            inside = 1.0 - smoothstep(radius, radius + softness, math.hypot(dx, dy))
+            key = (round(glow_alpha * inside), round(dim_alpha * (1.0 - inside)))
+            px = cache.get(key)
+            if px is None:
+                px = cache[key] = over(*key)
+            left.append(px)
+        top.append(b"".join(left) + b"".join(reversed(left)))
     return half, top + top[::-1]
+
+
+def glow(radius: int, softness: int, alpha: int) -> tuple[int, list[bytes]]:
+    """The plain glow: white at `alpha` inside `radius`, fading out over
+    `softness` pixels, clear in the corners."""
+    return spotlight(radius, softness, alpha, 0)
 
 
 def clip(cx: int, cy: int, half: int, width: int, height: int):
@@ -68,7 +102,8 @@ def clip(cx: int, cy: int, half: int, width: int, height: int):
 
 
 def fill(buf, width: int, height: int, rect, row: bytes) -> None:
-    """Paints rect (x, y, w, h) with the start of `row`, a run of clear pixels."""
+    """Paints rect (x, y, w, h) with the start of `row`, a run of background
+    pixels."""
     x, y, w, h = rect
     stride = width * BPP
     run = row[: w * BPP]
@@ -84,6 +119,49 @@ def stamp(buf, width: int, rows: list[bytes], placed) -> None:
     for i in range(h):
         start = (y + i) * stride + x * BPP
         buf[start : start + w * BPP] = rows[sy + i][sx * BPP : (sx + w) * BPP]
+
+
+def spotlight_frame(width: int, height: int, cx: float, cy: float, radius: float, softness: float,
+                    white: int, dim: int) -> bytes:
+    """One whole buffer: dimmed, with a round spot of `radius` at (cx, cy),
+    fading over `softness` pixels. For the closing-in animation, where the
+    spot starts bigger than the screen: a stamp that size would take seconds
+    to build, but a row is only runs of equal pixels with a short soft edge
+    at each end, so it is sliced together instead, and only the edge pixels
+    are worked out one by one."""
+    outer = radius + max(0.0, softness)
+    dim_row = dark(dim) * width
+    inside = pixel(white) if white > 0 else CLEAR
+    cache: dict[tuple[int, int], bytes] = {}
+    rows = []
+    for y in range(height):
+        dy = y + 0.5 - cy
+        if abs(dy) >= outer:
+            rows.append(dim_row)
+            continue
+        xo = math.sqrt(outer * outer - dy * dy)
+        lo = max(0, min(width, math.floor(cx - xo)))
+        ro = max(lo, min(width, math.ceil(cx + xo)))
+        if abs(dy) < radius:
+            xi = math.sqrt(radius * radius - dy * dy)
+            li = max(lo, min(ro, math.ceil(cx - xi)))
+            ri = max(li, min(ro, math.floor(cx + xi)))
+        else:
+            li = ri = max(lo, min(ro, round(cx)))
+
+        def edge(a, b):
+            out = []
+            for x in range(a, b):
+                t = 1.0 - smoothstep(radius, outer, math.hypot(x + 0.5 - cx, dy))
+                key = (round(white * t), round(dim * (1.0 - t)))
+                px = cache.get(key)
+                if px is None:
+                    px = cache[key] = over(*key)
+                out.append(px)
+            return b"".join(out)
+
+        rows.append(dim_row[: lo * BPP] + edge(lo, li) + inside * (ri - li) + edge(ri, ro) + dim_row[ro * BPP:])
+    return b"".join(rows)
 
 
 def to_local(x: float, y: float, width: int, height: int, physical: bool, factor: float):

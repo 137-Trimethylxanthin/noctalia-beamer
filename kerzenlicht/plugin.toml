@@ -1,20 +1,70 @@
-# Kerzenlicht — candlelight: a soft white glow that follows your cursor.
+# Kerzenlicht — candlelight: shows you where your cursor is. A message or a
+# key lights it for a moment, shaking the mouse dims everything but it, and a
+# soft white glow can follow it for as long as you like.
 #
-#   watch     [[service]]   runs the overlay (lib/kerzenlicht.py, through uv) and
-#                           keeps an eye on it
-#   toggle    [[shortcut]]  control-center tile: flashlight on / off
+#   watch     [[service]]   runs the overlay (lib/kerzenlicht.py, through uv),
+#                           keeps an eye on it, and watches for messages
+#   toggle    [[shortcut]]  control-center tile: glow on / off; right-click flashes
 
 id           = "137-trimethylxanthin/kerzenlicht"
 name         = "Kerzenlicht"
-version      = "0.1.0"
+version      = "0.2.0"
 plugin_api   = 24   # argv form of runAsync; also brings module-require and service-lifecycle
 author       = "137-trimethylxanthin"
 license      = "MIT"
 icon         = "bulb"
 deprecated   = false
-description  = "A spotlight for your cursor: a soft white glow follows it across every monitor, click-through. Any compositor with layer-shell and cursor sessions."
-tags         = ["shortcut", "service", "focus", "fun"]
+description  = "Find your cursor: a message or a key lights it up for a moment, shaking the mouse dims everything else, and a soft white glow can follow it for good. Click-through, on every monitor; any compositor with layer-shell and cursor sessions."
+tags         = ["shortcut", "service", "focus", "notifications", "accessibility"]
 dependencies = ["uv", "pkill", "pgrep", "noctalia"]
+
+[[setting]]
+key             = "flash_radius"
+type            = "int"
+label_key       = "settings.flash_radius.label"
+description_key = "settings.flash_radius.description"
+default         = 18
+min             = 5
+max             = 400
+
+[[setting]]
+key             = "flash_seconds"
+type            = "double"
+label_key       = "settings.flash_seconds.label"
+description_key = "settings.flash_seconds.description"
+default         = 1.5
+min             = 0.3
+max             = 10.0
+
+[[setting]]
+key             = "dim"
+type            = "double"
+label_key       = "settings.dim.label"
+description_key = "settings.dim.description"
+default         = 0.65
+min             = 0.1
+max             = 0.9
+
+[[setting]]
+key             = "on_message"
+type            = "bool"
+label_key       = "settings.on_message.label"
+description_key = "settings.on_message.description"
+default         = true
+
+[[setting]]
+key             = "message_apps"
+type            = "string"
+label_key       = "settings.message_apps.label"
+description_key = "settings.message_apps.description"
+default         = ""
+
+[[setting]]
+key             = "on_shake"
+type            = "bool"
+label_key       = "settings.on_shake.label"
+description_key = "settings.on_shake.description"
+default         = true
 
 [[setting]]
 key             = "radius"

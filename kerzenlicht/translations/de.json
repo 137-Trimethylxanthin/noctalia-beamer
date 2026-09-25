@@ -1,16 +1,40 @@
 {
   "title": "Kerzenlicht",
   "missing": "Fehlt auf diesem System: {tools}",
-  "failed": "Die Taschenlampe ist nicht angegangen. Details im Noctalia-Log",
+  "failed": "Das Licht ist nicht angegangen. Details im Noctalia-Log",
   "unsupported": "Dieser Compositor verrät Kerzenlicht nicht, wo der Mauszeiger ist (es fehlt {protocols})",
   "settings": {
+    "flash_radius": {
+      "label": "Größe des Aufblitzens",
+      "description": "Der Lichtschein, den eine Nachricht oder die Taste auf den Mauszeiger legt, in logischen Pixeln"
+    },
+    "flash_seconds": {
+      "label": "Dauer",
+      "description": "Wie lange das Aufblitzen bei einer Nachricht oder auf Tastendruck bleibt, in Sekunden"
+    },
+    "dim": {
+      "label": "Abdunkeln",
+      "description": "Wie dunkel beim Schütteln alles außer dem Mauszeiger wird, von 0,1 (ein Schatten) bis 0,9 (fast schwarz)"
+    },
+    "on_message": {
+      "label": "Bei Nachrichten aufblitzen",
+      "description": "Den Mauszeiger aufleuchten lassen, wenn eine Benachrichtigung kommt, außer bei „Nicht stören“"
+    },
+    "message_apps": {
+      "label": "Nur diese Apps",
+      "description": "App-Namen durch Kommas getrennt, etwa vesktop, telegram-desktop; leer heißt: jede App"
+    },
+    "on_shake": {
+      "label": "Beim Schütteln der Maus abdunkeln",
+      "description": "Die Maus sechsmal nach links und rechts schütteln: alles außer dem Mauszeiger wird dunkler, solange du schüttelst"
+    },
     "radius": {
       "label": "Radius",
-      "description": "Der volle Lichtschein um den Mauszeiger, in logischen Pixeln"
+      "description": "Das volle Licht um den Mauszeiger, in logischen Pixeln"
     },
     "softness": {
       "label": "Weicher Rand",
-      "description": "Wie viele Pixel der Lichtschein braucht, um auszulaufen"
+      "description": "Wie viele Pixel das Licht braucht, um auszulaufen"
     },
     "brightness": {
       "label": "Helligkeit",
@@ -18,7 +42,7 @@
     },
     "also_dnd": {
       "label": "Auch „Nicht stören“",
-      "description": "Mit der Taschenlampe „Nicht stören“ einschalten und danach wieder so stellen wie vorher"
+      "description": "Mit dem Lichtschein „Nicht stören“ einschalten und danach wieder so stellen wie vorher"
     }
   }
 }

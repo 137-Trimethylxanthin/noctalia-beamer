@@ -1,16 +1,40 @@
 {
   "title": "Kerzenlicht",
   "missing": "Missing on this system: {tools}",
-  "failed": "The flashlight did not start. See the Noctalia log",
+  "failed": "The light did not start. See the Noctalia log",
   "unsupported": "This compositor cannot tell Kerzenlicht where the cursor is (missing {protocols})",
   "settings": {
+    "flash_radius": {
+      "label": "Flash size",
+      "description": "The glow a message or the flash key puts on the cursor, in logical pixels"
+    },
+    "flash_seconds": {
+      "label": "Flash length",
+      "description": "How long a flash from a message or the flash key stays, in seconds"
+    },
+    "dim": {
+      "label": "Dimming",
+      "description": "How dark shaking the mouse makes everything but the cursor, from 0.1 (a shade) to 0.9 (nearly black)"
+    },
+    "on_message": {
+      "label": "Flash for messages",
+      "description": "Light the cursor when a notification comes in, except while Do Not Disturb is on"
+    },
+    "message_apps": {
+      "label": "Only these apps",
+      "description": "App names separated by commas, such as vesktop, telegram-desktop; empty flashes for every app"
+    },
+    "on_shake": {
+      "label": "Dim when shaking the mouse",
+      "description": "Shake the mouse six times left and right to dim everything but the cursor, for as long as you shake"
+    },
     "radius": {
       "label": "Radius",
-      "description": "The glow around the cursor at full strength, in logical pixels"
+      "description": "The light around the cursor at full strength, in logical pixels"
     },
     "softness": {
       "label": "Soft edge",
-      "description": "How many pixels the glow takes to fade out"
+      "description": "How many pixels the light takes to fade out"
     },
     "brightness": {
       "label": "Brightness",
@@ -18,7 +42,7 @@
     },
     "also_dnd": {
       "label": "Also Do Not Disturb",
-      "description": "Turn Do Not Disturb on with the flashlight, and put it back the way it was afterwards"
+      "description": "Turn Do Not Disturb on with the glow, and put it back the way it was afterwards"
     }
   }
 }
