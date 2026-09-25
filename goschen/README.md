@@ -48,6 +48,32 @@ under **Settings → Control Center shortcuts**. Goschen notices within two
 seconds: plugins are not told when Do Not Disturb changes, so it asks every two
 seconds.
 
+### In place of the built-in tile
+
+Goschen's tile does what Noctalia's own **Do Not Disturb** tile does: click
+toggles it, right-click opens the notifications. So it can take that tile's
+place in the control center. Swap them under **Settings → Control Center
+shortcuts**, or in `settings.toml` (this is Noctalia's default list, with the
+swap):
+
+```toml
+[[control_center.shortcuts]]
+type = "wifi"
+[[control_center.shortcuts]]
+type = "bluetooth"
+[[control_center.shortcuts]]
+type = "caffeine"
+[[control_center.shortcuts]]
+type = "nightlight"
+[[control_center.shortcuts]]
+type = "137-trimethylxanthin/goschen:toggle"
+[[control_center.shortcuts]]
+type = "power_profile"
+```
+
+The bell in the bar needs no change: it shows Noctalia's Do Not Disturb, which
+is the one Goschen follows and sets.
+
 ### What stays audible
 
 **Calls.** An app that is using the microphone is in a call, so it keeps its
@@ -90,7 +116,7 @@ hl.bind("SUPER + N", hl.dsp.exec_cmd("noctalia msg plugin 137-trimethylxanthin/g
 
 | Setting | Default | |
 | --- | --- | --- |
-| Apps to silence | `vesktop, discord, equibop, legcord, webcord, telegram-desktop, signal-desktop, slack, element-desktop` | Process or app names, separated by commas, matched against a stream's `application.process.binary` first and `application.name` second |
+| Apps to silence | `vesktop, discord, equibop, legcord, webcord, telegram-desktop, telegram, signal-desktop, slack, element-desktop, element` | Process or app names, separated by commas, matched against a stream's `application.process.binary` first and `application.name` second |
 | Leave calls alone | On | An app using the microphone keeps its sound |
 | Leave long playback alone | `0` | Seconds (up to 600) after which an app that keeps playing gets its sound back; `0` is off |
 
@@ -108,6 +134,16 @@ stream. So Goschen cannot mute Vesktop's pings and keep its voice chat: muting
 one Vesktop stream mutes the next one, whichever it is. It decides per app
 instead, which is what the call rule is for. The upside: once an app is muted,
 its next ping starts muted, so not even the first milliseconds get through.
+
+**Names shared by many apps are left alone.** Some apps play their sounds
+under their engine's name rather than their own: `Chromium`, `Electron`,
+`WEBRTC VoiceEngine`, `OpenAL Soft`, an `ALSA plug-in`, and browsers
+(`Firefox`), whose streams carry the browser's name whatever the site. WirePlumber remembers
+a mute per name, so muting such a stream would also mute your browser, your
+editor or a game the next time they play, and Goschen could not tell. So
+those streams are never muted. The official Discord client plays its pings as
+`Chromium`; for it, turn Discord's own notification sound off, or use Vesktop,
+which plays them under its own name.
 
 **Getting the sound back.** Because the mute is remembered, an app whose
 streams have all closed would come back muted after Do Not Disturb. So when

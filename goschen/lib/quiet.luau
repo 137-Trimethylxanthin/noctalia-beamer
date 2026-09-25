@@ -18,7 +18,25 @@
 
 local M = {}
 
-M.DEFAULT_APPS = "vesktop, discord, equibop, legcord, webcord, telegram-desktop, signal-desktop, slack, element-desktop"
+M.DEFAULT_APPS = "vesktop, discord, equibop, legcord, webcord, telegram-desktop, telegram, signal-desktop, slack, element-desktop, element"
+
+-- Names an engine gives every app built on it. WirePlumber remembers a mute
+-- per name, so muting one stream with such a name would also mute the next
+-- browser tab, editor or game that shares it, and Goschen would never know to
+-- give that back. Streams whose remembered key is one of these stay alone.
+local GENERIC = {
+  ["chromium"] = true, ["chromium input"] = true, ["google chrome"] = true, ["electron"] = true,
+  ["webrtc voiceengine"] = true, ["openal soft"] = true, ["sdl application"] = true,
+  ["firefox"] = true, ["pipewire"] = true, ["pulseaudio"] = true,
+}
+
+function M.isGeneric(key)
+  if type(key) ~= "string" then
+    return false
+  end
+  key = string.lower(key)
+  return GENERIC[key] == true or string.sub(key, 1, 12) == "alsa plug-in"
+end
 
 local function lower(value)
   if type(value) ~= "string" or value == "" then
@@ -89,6 +107,14 @@ function M.restoreName(stream)
   local rawId = props["application.id"]
   local name, id = prop(props, "application.name"), prop(props, "application.id")
   if (rawId ~= nil and rawId ~= "" and id == "") or (name == "" and id == "") then
+    return nil
+  end
+  -- WirePlumber's key is the id when there is one, else the name.
+  local key = name
+  if id ~= "" then
+    key = id
+  end
+  if M.isGeneric(key) then
     return nil
   end
   return name .. "|" .. id

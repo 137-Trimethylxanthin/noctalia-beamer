@@ -6,7 +6,7 @@
 
 id           = "137-trimethylxanthin/goschen"
 name         = "Goschen"
-version      = "0.1.0"
+version      = "0.1.1"
 plugin_api   = 24   # argv form of runAsync; also brings module-require and service-lifecycle
 author       = "137-trimethylxanthin"
 license      = "MIT"
@@ -21,7 +21,7 @@ key             = "apps"
 type            = "string"
 label_key       = "settings.apps.label"
 description_key = "settings.apps.description"
-default         = "vesktop, discord, equibop, legcord, webcord, telegram-desktop, signal-desktop, slack, element-desktop"
+default         = "vesktop, discord, equibop, legcord, webcord, telegram-desktop, telegram, signal-desktop, slack, element-desktop, element"
 
 [[setting]]
 key             = "respect_calls"

@@ -30,6 +30,9 @@ end
 
 -- nil until the first answer: nothing is muted or given back on a guess.
 local dnd = nil
+-- Counts every time Do Not Disturb goes on, so a reset that started before
+-- can tell its app was muted again meanwhile.
+local dndEpoch = 0
 local dndFailures = 0
 -- { [key] = { names, streams, seen, returning } }, see lib/quiet: apps muted
 -- by Goschen that still have to be given back. On disk, so a crash or restart
@@ -140,49 +143,87 @@ local function resetSaved(name)
     return
   end
   resetting[name] = true
-  noctalia.runAsync({ "sh", script, "name:" .. args[1], "id:" .. args[2] }, function(result)
+  -- A Do Not Disturb that comes back on while this runs mutes the app
+  -- again, and that newer mute is not what this reset cleared.
+  local epoch = dndEpoch
+  -- unmute.sh may take a few seconds; the default five would cut it short.
+  local accepted = noctalia.runAsync({ "sh", script, "name:" .. args[1], "id:" .. args[2] }, function(result)
     resetting[name] = nil
     if result.exitCode == 0 then
       resetFailedAt[name] = nil
-      dropName(name)
+      if epoch == dndEpoch then
+        dropName(name)
+      end
     else
       if resetFailedAt[name] == nil then
         noctalia.log("goschen: could not clear the remembered mute of " .. name .. "; trying again")
       end
       resetFailedAt[name] = noctalia.nowMs()
     end
-  end)
+  end, 15000)
+  if not accepted then
+    resetting[name] = nil -- Noctalia's command slots are full; the next look tries again
+  end
 end
 
 -- Runs every set-mute and calls `done` once they have all been carried out,
 -- so the next look never reads a mute that is still on its way.
+-- One command for all of them: Noctalia runs only a few commands per plugin
+-- at once and refuses the rest without calling back, and a refused mute
+-- would leave the look waiting for good.
+local SET_MUTES = [[
+state=$1; shift
+for index in "$@"; do pactl set-sink-input-mute "$index" "$state"; done
+]]
+
 local function setMutes(mutes, unmutes, done)
-  local pending = #mutes + #unmutes
-  if pending == 0 then
-    return done()
+  local batches = {}
+  if #mutes > 0 then
+    table.insert(batches, { "1", mutes })
   end
-  local function one()
-    pending = pending - 1
-    if pending == 0 then
+  if #unmutes > 0 then
+    table.insert(batches, { "0", unmutes })
+  end
+  local i = 0
+  local function nextBatch()
+    i = i + 1
+    local batch = batches[i]
+    if batch == nil then
+      return done()
+    end
+    local argv = { "sh", "-c", SET_MUTES, "sh", batch[1] }
+    for _, index in ipairs(batch[2]) do
+      table.insert(argv, tostring(index))
+    end
+    if not noctalia.runAsync(argv, nextBatch) then
+      noctalia.log("goschen: could not run pactl right now; the next look catches up")
       done()
     end
   end
-  for _, index in ipairs(mutes) do
-    noctalia.runAsync({ "pactl", "set-sink-input-mute", tostring(index), "1" }, one)
-  end
-  for _, index in ipairs(unmutes) do
-    noctalia.runAsync({ "pactl", "set-sink-input-mute", tostring(index), "0" }, one)
-  end
+  nextBatch()
 end
 
+-- pactl learned -f json in PulseAudio 16; an older one (RHEL 9 has 15)
+-- fails every time, and nothing would ever be muted. Said once in the log.
+local listFailures = 0
+
 local function listJson(what, done)
-  noctalia.runAsync({ "pactl", "-f", "json", "list", what }, function(result)
+  local accepted = noctalia.runAsync({ "pactl", "-f", "json", "list", what }, function(result)
     if result.exitCode ~= 0 then
+      listFailures += 1
+      if listFailures == 5 then
+        noctalia.log("goschen: `pactl -f json list " .. what .. "` keeps failing (pactl 16 or newer is needed): "
+          .. noctalia.string.trim((result.stderr or "") .. (result.stdout or "")))
+      end
       return done(nil)
     end
+    listFailures = 0
     local value = noctalia.json.decode(result.stdout or "")
     done(if type(value) == "table" then value else nil)
   end)
+  if not accepted then
+    done(nil)
+  end
 end
 
 -- ── Looking ──────────────────────────────────────────────────────────────────
@@ -295,6 +336,9 @@ local function refresh()
     end
     dndFailures = 0
     if state ~= dnd then
+      if state == true then
+        dndEpoch += 1
+      end
       dnd = state
       publish()
     end
@@ -358,7 +402,8 @@ local function subscribe()
   subscription = subscription + 1
   local gen = subscription
   subscribed = true
-  noctalia.runStream("pactl subscribe 2>/dev/null; echo goschen:ended", function(line)
+  -- The C locale, like unmute.sh: pactl translates its event lines.
+  noctalia.runStream("LC_ALL=C pactl subscribe 2>/dev/null; echo goschen:ended", function(line)
     onStreamLine(noctalia.string.trim(line or ""), gen)
   end)
 end
@@ -397,7 +442,11 @@ if #missing > 0 then
 else
   listJson("sink-inputs", function(sinks)
     seedAges(sinks)
-    subscribe()
+    -- The first tick may have subscribed already, while this list was on
+    -- its way; a second `pactl subscribe` would run for nothing.
+    if not subscribed then
+      subscribe()
+    end
     refresh()
   end)
 end
